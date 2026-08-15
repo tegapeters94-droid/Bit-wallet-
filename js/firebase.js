@@ -22,12 +22,12 @@ import {
 // not secret; access is controlled by Firestore Security Rules
 // (see firestore.rules), not by hiding this object.
 const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID',
+  apiKey: 'AIzaSyBFlUcq7PWrizQHjGnwskVAXnigDfhrg5o',
+  authDomain: 'bitwallet-f664d.firebaseapp.com',
+  projectId: 'bitwallet-f664d',
+  storageBucket: 'bitwallet-f664d.firebasestorage.app',
+  messagingSenderId: '106600949104',
+  appId: '1:106600949104:web:95a19d1c3550c3772d1bb5',
 };
 // ============================================================
 
