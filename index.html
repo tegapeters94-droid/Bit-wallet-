@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bitwallet — Multi-chain wallet (simulated)</title>
+    <meta name="description" content="Bitwallet is a demo multi-chain crypto wallet prototype. All balances and transactions are simulated." />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/layout.css" />
+    <link rel="stylesheet" href="css/components.css" />
+    <link rel="stylesheet" href="css/pages.css" />
+
+    <!-- QR code rendering, loaded from CDN like Firebase — no npm install needed. -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <div class="full-spinner"><div class="spinner spinner--lg"></div></div>
+    </div>
+
+    <!-- Firebase is loaded inside js/firebase.js directly from Google's CDN
+         as ES modules — nothing here needs npm or a build step. -->
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
