@@ -1,32 +1,75 @@
 // js/chart.js
-// A small canvas-drawn area chart replacing the React version's recharts
-// component. Builds a deterministic simulated 7-day trend ending at the
-// current total portfolio value, so the chart feels alive without storing
-// historical snapshots.
+// A small canvas-drawn area chart used for the portfolio balance and
+// per-asset price charts. Builds a deterministic simulated trend line for
+// whichever time range is selected, ending at the current total value, so
+// the chart feels alive without needing a real historical data feed.
 
-function buildTrend(total, change24h) {
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const today = new Date().getDay();
-  const ordered = [...days.slice(today + 1), ...days.slice(0, today + 1)];
-  const startValue = total / (1 + change24h / 100 || 1);
-  return ordered.map((day, i) => {
-    const t = i / (ordered.length - 1);
-    const noise = Math.sin(i * 1.7) * total * 0.015;
+export const CHART_RANGES = ['1H', '1D', '1W', '1M', '1Y', 'ALL'];
+
+function labelsFor(range) {
+  const now = new Date();
+  switch (range) {
+    case '1H': {
+      const labels = [];
+      for (let i = 5; i >= 0; i -= 1) {
+        const t = new Date(now.getTime() - i * 10 * 60 * 1000);
+        labels.push(i === 0 ? 'Now' : t.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }));
+      }
+      return labels;
+    }
+    case '1D': {
+      const labels = [];
+      for (let i = 6; i >= 0; i -= 1) {
+        const t = new Date(now.getTime() - i * 4 * 60 * 60 * 1000);
+        labels.push(i === 0 ? 'Now' : t.toLocaleTimeString(undefined, { hour: 'numeric' }));
+      }
+      return labels;
+    }
+    case '1W': {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const today = now.getDay();
+      return [...days.slice(today + 1), ...days.slice(0, today + 1)];
+    }
+    case '1M':
+      return ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4', 'Now'];
+    case '1Y': {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const m = now.getMonth();
+      return [...months.slice(m + 1), ...months.slice(0, m + 1)];
+    }
+    case 'ALL':
+    default:
+      return ['2023', '2024', '2025', '2026', 'Now'];
+  }
+}
+
+// How much the line wanders per range — shorter ranges are calmer,
+// longer ranges show more visible growth/volatility.
+const VOLATILITY = { '1H': 0.006, '1D': 0.015, '1W': 0.03, '1M': 0.06, '1Y': 0.16, ALL: 0.32 };
+
+function buildTrend(total, change24h, range) {
+  const labels = labelsFor(range);
+  const volatility = VOLATILITY[range] ?? 0.03;
+  const startValue = Math.max(0, total * (1 - volatility * (0.6 + Math.abs(change24h) / 20)));
+
+  return labels.map((label, i) => {
+    const t = i / (labels.length - 1);
+    const noise = Math.sin(i * 1.9 + range.length) * total * (volatility * 0.18);
     const value = startValue + (total - startValue) * t + noise;
-    return { day, value: Math.max(0, value) };
+    return { label, value: Math.max(0, value) };
   });
 }
 
 /**
- * renderPortfolioChart(canvas, total, change24h)
+ * renderPortfolioChart(canvas, total, change24h, range)
  * Draws directly onto a <canvas> element sized to its CSS box, with
  * devicePixelRatio scaling for crisp lines on retina displays.
  */
-export function renderPortfolioChart(canvas, total, change24h) {
+export function renderPortfolioChart(canvas, total, change24h, range = '1D') {
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   const width = rect.width || canvas.parentElement.clientWidth || 400;
-  const height = 180;
+  const height = rect.height || 160;
   canvas.width = width * dpr;
   canvas.height = height * dpr;
   canvas.style.width = `${width}px`;
@@ -36,23 +79,22 @@ export function renderPortfolioChart(canvas, total, change24h) {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, width, height);
 
-  const data = buildTrend(total, change24h);
+  const data = buildTrend(total, change24h, range);
   const positive = change24h >= 0;
-  const color = positive ? '#00d9c0' : '#f2495c';
+  const color = positive ? '#3ddc97' : '#ff6b6b';
 
-  const padTop = 12;
-  const padBottom = 26;
+  const padTop = 10;
+  const padBottom = 22;
   const values = data.map((d) => d.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const range = max - min || 1;
+  const range_ = max - min || 1;
 
   const xFor = (i) => (i / (data.length - 1)) * width;
-  const yFor = (v) => padTop + (1 - (v - min) / range) * (height - padTop - padBottom);
+  const yFor = (v) => padTop + (1 - (v - min) / range_) * (height - padTop - padBottom);
 
-  // Area fill
   const gradient = ctx.createLinearGradient(0, padTop, 0, height - padBottom);
-  gradient.addColorStop(0, `${color}59`);
+  gradient.addColorStop(0, `${color}40`);
   gradient.addColorStop(1, `${color}00`);
 
   ctx.beginPath();
@@ -68,7 +110,6 @@ export function renderPortfolioChart(canvas, total, change24h) {
   ctx.fillStyle = gradient;
   ctx.fill();
 
-  // Line
   ctx.beginPath();
   data.forEach((d, i) => {
     const x = xFor(i);
@@ -77,15 +118,15 @@ export function renderPortfolioChart(canvas, total, change24h) {
     else ctx.lineTo(x, y);
   });
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 2.25;
   ctx.lineJoin = 'round';
   ctx.stroke();
 
-  // Day labels
-  ctx.fillStyle = '#5c6379';
-  ctx.font = '12px Inter, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.38)';
+  ctx.font = '11px Inter, sans-serif';
   ctx.textAlign = 'center';
   data.forEach((d, i) => {
-    ctx.fillText(d.day, xFor(i), height - 6);
+    if (data.length > 7 && i % 2 !== 0 && i !== data.length - 1) return;
+    ctx.fillText(d.label, xFor(i), height - 6);
   });
 }
