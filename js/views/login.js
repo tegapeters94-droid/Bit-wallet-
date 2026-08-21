@@ -21,7 +21,7 @@ export function mount(container) {
           <span class="shell__brand-mark">B</span>Bitwallet
         </a>
         <h2>Log in</h2>
-        <p class="auth-sub">Access your simulated wallet portfolio.</p>
+        <p class="auth-sub">Access your wallet.</p>
 
         ${!isFirebaseConfigured ? `<div class="alert alert--warning">Firebase isn't configured yet. Add your project keys in js/firebase.js to enable login. See README.md.</div>` : ''}
         <div id="formError"></div>

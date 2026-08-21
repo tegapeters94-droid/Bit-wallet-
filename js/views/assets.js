@@ -3,7 +3,7 @@ import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
 import { subscribeToPortfolio } from '../wallet.js';
 import { calculatePortfolioValue } from '../pricing.js';
-import { assetRowHtml, emptyStateHtml, skeletonCardHtml, mountNetworkSwitcher } from '../components.js';
+import { assetRowHtml, emptyStateHtml, skeletonCardHtml, mountNetworkSwitcher, formatUsd } from '../components.js';
 
 export function mount(container) {
   const content = renderShell(container);
@@ -13,12 +13,11 @@ export function mount(container) {
 
   content.innerHTML = `
     <div class="page-header">
-      <div><span class="page-eyebrow">Portfolio</span><h1>Assets</h1></div>
+      <h1>Assets</h1>
       <div id="networkSwitcher"></div>
     </div>
-    <section class="glass-card">
-      <div id="assetsList">${skeletonCardHtml()}${skeletonCardHtml()}${skeletonCardHtml()}${skeletonCardHtml()}</div>
-    </section>
+    <div class="card" id="totalCard">${skeletonCardHtml()}</div>
+    <div id="assetsList">${skeletonCardHtml()}${skeletonCardHtml()}${skeletonCardHtml()}${skeletonCardHtml()}</div>
   `;
 
   function renderSwitcher() {
@@ -30,6 +29,7 @@ export function mount(container) {
   }
 
   function renderList() {
+    const totalCard = content.querySelector('#totalCard');
     const listEl = content.querySelector('#assetsList');
     if (!latestAssets) return;
     const visible = Object.fromEntries(Object.entries(latestAssets).filter(([, a]) => a.balance > 0));
@@ -37,11 +37,16 @@ export function mount(container) {
     const filtered =
       selectedNetwork === 'all' ? portfolio.breakdown : portfolio.breakdown.filter((a) => a.networkId === selectedNetwork);
 
+    totalCard.innerHTML = `
+      <span class="portfolio-card__label">${selectedNetwork === 'all' ? 'Total assets value' : 'Value'}</span>
+      <div class="asset-hero__price-figure" style="margin-top:6px;">${formatUsd(filtered.reduce((s, a) => s + a.usdValue, 0))}</div>
+    `;
+
     if (filtered.length === 0) {
       listEl.innerHTML = emptyStateHtml({
         icon: '◈',
         title: 'No assets here',
-        message: 'Try a different network, or receive a simulated payment.',
+        message: 'Try a different network, or receive a payment.',
       });
     } else {
       listEl.innerHTML = `<div class="asset-list">${filtered.map(assetRowHtml).join('')}</div>`;

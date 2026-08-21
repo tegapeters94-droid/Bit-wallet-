@@ -46,7 +46,7 @@ export function mount(container) {
 
           <label class="field">
             <span>Recipient address</span>
-            <input class="mono" id="recipient" placeholder="Simulated ${net.name} address" value="${formValues.recipient}" />
+            <input class="mono" id="recipient" placeholder="${net.name} address" value="${formValues.recipient}" />
           </label>
 
           <label class="field">
@@ -62,7 +62,7 @@ export function mount(container) {
 
           <div class="send-summary">
             <div><span>Amount</span><span>${parsedAmount || 0} ${net.symbol}</span></div>
-            <div><span>Simulated gas fee</span><span>${gas.fee} ${net.symbol} ($${gas.usdValue})</span></div>
+            <div><span>Network fee</span><span>${gas.fee} ${net.symbol} ($${gas.usdValue})</span></div>
             <div class="send-summary__total"><span>Total</span><span>${total} ${net.symbol}</span></div>
           </div>
 
@@ -72,8 +72,8 @@ export function mount(container) {
       inner = `
         <div class="send-confirm">
           ${networkIconHtml(networkId, 56)}
-          <h3>Confirm simulated send</h3>
-          <p class="auth-sub">This will not touch a real blockchain — it only updates your demo balance.</p>
+          <h3>Confirm send</h3>
+          <p class="auth-sub">Review the details before confirming.</p>
           <div class="send-summary">
             <div><span>Network</span><span>${net.name}</span></div>
             <div><span>To</span><span class="mono">${formValues.recipient.slice(0, 10)}…${formValues.recipient.slice(-6)}</span></div>
@@ -83,22 +83,22 @@ export function mount(container) {
           </div>
           <div class="send-confirm__actions">
             <button class="btn btn--ghost btn--block" id="editBtn">Edit</button>
-            <button class="btn btn--primary btn--block" id="confirmBtn">Confirm & simulate send</button>
+            <button class="btn btn--primary btn--block" id="confirmBtn">Confirm & send</button>
           </div>
         </div>`;
     } else if (step === 'processing') {
       inner = `
         <div class="send-confirm send-confirm--processing">
           <div class="spinner spinner--lg"></div>
-          <h3>Broadcasting simulated transaction…</h3>
+          <h3>Sending…</h3>
           <p class="auth-sub">Generating confirmation on ${net.name}.</p>
         </div>`;
     } else if (step === 'done' && result) {
       inner = `
         <div class="send-confirm send-confirm--done">
           <div class="success-check">✓</div>
-          <h3>Simulated transaction confirmed</h3>
-          <p class="auth-sub">This transaction is simulated for demo purposes — no real assets were transferred.</p>
+          <h3>Transaction confirmed</h3>
+          <p class="auth-sub">Your balance has been updated.</p>
           <div class="send-summary">
             <div><span>Sent</span><span>${parsedAmount} ${net.symbol}</span></div>
             <div><span>New balance</span><span>${result.newBalance} ${net.symbol}</span></div>
@@ -112,8 +112,8 @@ export function mount(container) {
     }
 
     content.innerHTML = `
-      <div class="page-header"><div><span class="page-eyebrow">Simulated transfer</span><h1>Send</h1></div></div>
-      <div class="send-layout"><div class="glass-card send-form">${inner}</div></div>
+      <div class="page-header"><h1>Send</h1></div>
+      <div class="send-layout"><div class="card send-form">${inner}</div></div>
     `;
 
     wireEvents();
@@ -178,7 +178,7 @@ export function mount(container) {
           });
           result = res;
           step = 'done';
-          notify('Simulated transaction confirmed');
+          notify('Transaction confirmed');
         } catch (err) {
           error = err.message;
           step = 'form';
