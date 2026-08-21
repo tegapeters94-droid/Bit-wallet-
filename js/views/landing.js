@@ -17,19 +17,18 @@ export function mount(container) {
       </header>
 
       <section class="landing__hero">
-        <span class="pill pill--muted">Prototype · All balances simulated</span>
         <h1>
           One wallet, <span class="text-gradient">seven chains</span>,
           <br />
           zero real money at risk.
         </h1>
         <p class="landing__sub">
-          Bitwallet is a portfolio-grade demo of what a modern multi-chain wallet feels like —
-          balances, transactions, sends and receives, all simulated so you can explore freely.
+          Manage Ethereum, Bitcoin, Solana, and more from one clean, fast wallet —
+          balances, activity, sends and receives, all in one place.
         </p>
         <div class="landing__hero-actions">
-          <a href="#/signup" class="btn btn--primary btn--lg">Create a demo wallet</a>
-          <a href="#/login" class="btn btn--ghost btn--lg">I already have one</a>
+          <a href="#/signup" class="btn btn--primary btn--lg">Create wallet</a>
+          <a href="#/login" class="btn btn--ghost btn--lg">I already have a wallet</a>
         </div>
 
         <div class="landing__networks">
@@ -38,25 +37,25 @@ export function mount(container) {
       </section>
 
       <section class="landing__features">
-        <div class="glass-card">
+        <div class="card">
           <div class="landing__feature-icon">◈</div>
           <h3>Multi-chain by default</h3>
           <p>Ethereum, Bitcoin, Solana, Polygon, BNB Chain, Base, and Arbitrum in a single portfolio view.</p>
         </div>
-        <div class="glass-card">
+        <div class="card">
           <div class="landing__feature-icon">↻</div>
           <h3>Living transaction history</h3>
-          <p>Send and receive flows generate realistic simulated transactions, gas fees, and confirmations.</p>
+          <p>Send and receive flows generate real-feeling transactions, network fees, and confirmations.</p>
         </div>
-        <div class="glass-card">
+        <div class="card">
           <div class="landing__feature-icon">⛨</div>
           <h3>Nothing real at stake</h3>
-          <p>No private keys, no seed phrases, no blockchain calls. Every number here is configurable demo data.</p>
+          <p>Track balances and activity across every network your assets touch, in one unified view.</p>
         </div>
       </section>
 
       <footer class="landing__footer">
-        <span>Bitwallet is a simulation. No cryptocurrency is stored, sent, or received.</span>
+        <span>© 2026 Bitwallet</span>
       </footer>
     </div>
   `;

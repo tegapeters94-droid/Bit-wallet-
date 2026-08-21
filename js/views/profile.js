@@ -15,7 +15,7 @@ export function mount(container) {
   content.innerHTML = `
     <div class="page-header"><div><span class="page-eyebrow">Account</span><h1>Profile</h1></div></div>
 
-    <div class="glass-card profile-card">
+    <div class="card profile-card">
       <span class="shell__avatar shell__avatar--lg">${initials}</span>
       <div>
         <h2>${escapeHtml(profile?.name || 'Wallet user')}</h2>
@@ -25,22 +25,22 @@ export function mount(container) {
     </div>
 
     <div class="dashboard-grid">
-      <div class="glass-card">
+      <div class="card">
         <span class="page-eyebrow">Portfolio value</span>
         <div class="asset-detail__balance" id="portfolioValue">…</div>
       </div>
-      <div class="glass-card">
+      <div class="card">
         <span class="page-eyebrow">Account created</span>
         <div class="asset-detail__balance" style="font-size:20px;">${createdDate}</div>
       </div>
     </div>
 
-    <div class="glass-card">
-      <h3>About this wallet</h3>
+    <div class="card">
+      <h3>Security</h3>
       <p class="auth-sub">
-        Bitwallet is a simulation. Balances, transactions, gas fees, and addresses shown here are
-        not connected to any real blockchain, and no real cryptocurrency is stored or transferred.
+        Manage your recovery phrase and wallet addresses from Settings. Never share your recovery phrase with anyone.
       </p>
+      <a href="#/settings" class="btn btn--ghost" style="margin-top:12px;">Go to Settings</a>
     </div>
   `;
 

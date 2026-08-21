@@ -4,15 +4,17 @@ import { renderShell } from '../shell.js';
 import { subscribeToPortfolio, subscribeToTransactions } from '../wallet.js';
 import { getNetwork } from '../networks.js';
 import { calculatePortfolioValue } from '../pricing.js';
+import { renderPortfolioChart, CHART_RANGES } from '../chart.js';
 import { renderQrInto } from '../qr.js';
 import { notify } from '../toast.js';
 import {
   networkIconHtml,
-  transactionRowHtml,
+  transactionGroupsHtml,
   emptyStateHtml,
   copyButtonHtml,
   wireCopyButtons,
   formatUsd,
+  mountRangeFilters,
 } from '../components.js';
 
 export function mount(container, params) {
@@ -20,13 +22,14 @@ export function mount(container, params) {
   const { user } = getState();
   const { networkId } = params;
   const net = getNetwork(networkId);
+  let range = '1D';
 
   if (!net) {
     content.innerHTML = emptyStateHtml({ icon: '✕', title: 'Unknown network', message: "That asset doesn't exist." });
     return;
   }
 
-  content.innerHTML = `<div class="glass-card">Loading asset…</div>`;
+  content.innerHTML = `<div class="card">Loading asset…</div>`;
 
   let latestAssets = null;
   let latestTx = [];
@@ -41,61 +44,73 @@ export function mount(container, params) {
     const price = breakdown?.price ?? 0;
     const change24h = breakdown?.change24h ?? 0;
     const usdValue = breakdown?.usdValue ?? assetData.balance * price;
+    const positive = change24h >= 0;
     const assetTx = latestTx.filter((t) => t.networkId === networkId);
 
     content.innerHTML = `
       <a href="#/assets" class="back-link">← Back</a>
 
-      <div class="page-header">
-        <div class="asset-detail__title">
-          ${networkIconHtml(net.id, 48)}
-          <div><h1>${net.name}</h1><span class="page-eyebrow">${net.symbol}</span></div>
+      <div class="asset-hero">
+        <div class="asset-hero__top">
+          ${networkIconHtml(net.id, 44)}
+          <div>
+            <h1>${net.name}</h1>
+            <span class="page-eyebrow">${net.symbol}</span>
+          </div>
         </div>
-        <div class="page-header__actions">
+
+        <div class="asset-hero__price">
+          <div class="asset-hero__price-figure">$${price.toLocaleString()}</div>
+          <div class="asset-hero__change ${positive ? 'is-up' : 'is-down'}">${positive ? '+' : ''}${change24h}%</div>
+        </div>
+
+        <div class="asset-hero__balance">
+          <span>${assetData.balance.toLocaleString(undefined, { maximumFractionDigits: net.decimals })} ${net.symbol}</span>
+          <span class="asset-hero__balance-usd">${formatUsd(usdValue)}</span>
+        </div>
+
+        <div class="quick-actions quick-actions--compact">
           <a href="#/send" class="btn btn--primary">Send</a>
-          <a href="#/receive" class="btn btn--ghost">Receive</a>
+          <a href="#/receive" class="btn btn--secondary">Receive</a>
         </div>
       </div>
 
-      <div class="dashboard-grid">
-        <div class="glass-card">
-          <span class="page-eyebrow">Balance</span>
-          <div class="asset-detail__balance">${assetData.balance.toLocaleString(undefined, { maximumFractionDigits: net.decimals })} ${net.symbol}</div>
-          <div class="asset-detail__usd">${formatUsd(usdValue)}</div>
-          <div class="hero-balance__change ${change24h >= 0 ? 'is-up' : 'is-down'}">${change24h >= 0 ? '▲' : '▼'} ${Math.abs(change24h)}% (24h, simulated)</div>
+      <div class="card">
+        <div class="portfolio-card__chart"><canvas id="assetCanvas"></canvas></div>
+        <div id="rangeFilters"></div>
+      </div>
 
-          <div class="asset-detail__divider"></div>
-
-          <span class="page-eyebrow">Wallet address</span>
-          <div class="asset-detail__address">
-            <span class="mono" id="addrText">${assetData.address}</span>
-            ${copyButtonHtml('addrText')}
-          </div>
-
-          <div class="asset-detail__network-info">
-            <div><span>Network</span><strong>${net.name}</strong></div>
-            <div><span>Symbol</span><strong>${net.symbol}</strong></div>
-            <div><span>Simulated price</span><strong>$${price.toLocaleString()}</strong></div>
-          </div>
-        </div>
-
-        <div class="glass-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
-          <div class="qr-frame"><canvas id="qrCanvas"></canvas></div>
-          <span class="page-eyebrow">Scan to view address</span>
+      <div class="card">
+        <span class="page-eyebrow">Wallet address</span>
+        <div class="asset-detail__address">
+          <span class="mono" id="addrText">${assetData.address}</span>
+          ${copyButtonHtml('addrText')}
         </div>
       </div>
 
-      <section class="glass-card">
-        <div class="section-head"><h3>Transaction history</h3></div>
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <canvas id="qrCanvas"></canvas>
+        <span class="page-eyebrow">Scan to view address</span>
+      </div>
+
+      <section class="section-block">
+        <div class="section-head"><h3>Activity</h3></div>
         <div id="txListDetail">
           ${
             assetTx.length === 0
-              ? emptyStateHtml({ icon: '☰', title: 'No transactions yet', message: `Sends and receives on ${net.name} will appear here.` })
-              : `<div class="tx-list">${assetTx.map(transactionRowHtml).join('')}</div>`
+              ? emptyStateHtml({ icon: '☰', title: 'No activity yet', message: `Sends and receives on ${net.name} will appear here.` })
+              : transactionGroupsHtml(assetTx)
           }
         </div>
       </section>
     `;
+
+    const canvas = content.querySelector('#assetCanvas');
+    requestAnimationFrame(() => renderPortfolioChart(canvas, price, change24h, range));
+    mountRangeFilters(content.querySelector('#rangeFilters'), CHART_RANGES, range, (r) => {
+      range = r;
+      render();
+    });
 
     wireCopyButtons(content, { onCopied: () => notify('Address copied') });
     renderQrInto(content.querySelector('#qrCanvas'), assetData.address);

@@ -29,12 +29,12 @@ export function mount(container) {
   content.innerHTML = `
     <div class="page-header"><div><span class="page-eyebrow">Restricted</span><h1>Admin panel</h1></div></div>
     <div class="admin-layout">
-      <div class="glass-card admin-user-list">
+      <div class="card admin-user-list">
         <label class="field"><span>Search users</span><input id="searchInput" placeholder="Name or email" /></label>
         <div id="userItems"></div>
       </div>
       <div id="adminDetail">
-        <div class="glass-card">${emptyStateHtml({ icon: '◈', title: 'Select a user', message: 'Choose a user on the left to configure their simulated wallet.' })}</div>
+        <div class="card">${emptyStateHtml({ icon: '◈', title: 'Select a user', message: 'Choose a user on the left to configure their wallet.' })}</div>
       </div>
     </div>
   `;
@@ -85,7 +85,7 @@ export function mount(container) {
     const detailEl = content.querySelector('#adminDetail');
     const user = users.find((u) => u.uid === selectedUid);
     if (!user) {
-      detailEl.innerHTML = `<div class="glass-card">${emptyStateHtml({ icon: '◈', title: 'Select a user', message: 'Choose a user on the left to configure their simulated wallet.' })}</div>`;
+      detailEl.innerHTML = `<div class="card">${emptyStateHtml({ icon: '◈', title: 'Select a user', message: 'Choose a user on the left to configure their wallet.' })}</div>`;
       return;
     }
     panelUnmount = mountAdminUserPanel(detailEl, user);
@@ -122,7 +122,7 @@ function mountAdminUserPanel(detailEl, user) {
 
   function render() {
     if (!assets) {
-      detailEl.innerHTML = `<div class="glass-card">Loading portfolio…</div>`;
+      detailEl.innerHTML = `<div class="card">Loading portfolio…</div>`;
       return;
     }
     const portfolioValue = calculatePortfolioValue(
@@ -131,7 +131,7 @@ function mountAdminUserPanel(detailEl, user) {
 
     detailEl.innerHTML = `
       <div class="admin-detail">
-        <div class="glass-card">
+        <div class="card">
           <div class="section-head"><h3>${escapeHtml(user.name)}'s portfolio</h3><span class="pill pill--muted">$${portfolioValue.total.toLocaleString()}</span></div>
           <div class="admin-balance-grid">
             ${NETWORKS.map(
@@ -148,8 +148,8 @@ function mountAdminUserPanel(detailEl, user) {
           </div>
         </div>
 
-        <div class="glass-card">
-          <h3>Generate simulated transaction</h3>
+        <div class="card">
+          <h3>Generate transaction</h3>
           <div class="admin-gen-form">
             <select id="genNetwork">${NETWORKS.map((n) => `<option value="${n.id}" ${genForm.networkId === n.id ? 'selected' : ''}>${n.name}</option>`).join('')}</select>
             <select id="genType">
@@ -161,7 +161,7 @@ function mountAdminUserPanel(detailEl, user) {
           </div>
         </div>
 
-        <div class="glass-card">
+        <div class="card">
           <div class="section-head"><h3>Recent transactions</h3></div>
           <div id="adminTxList">
             ${
@@ -186,7 +186,7 @@ function mountAdminUserPanel(detailEl, user) {
           </div>
         </div>
 
-        <div class="glass-card">
+        <div class="card">
           <h3 style="color:var(--danger);">Danger zone</h3>
           <p class="auth-sub" style="margin-bottom:12px;">Resets this user's balances to defaults and clears their transaction history.</p>
           <button class="btn btn--danger" id="resetUserBtn" ${busy ? 'disabled' : ''}>Reset this user's portfolio</button>
@@ -282,7 +282,7 @@ function mountAdminUserPanel(detailEl, user) {
         } else {
           await simulateOutgoingPayment(user.uid, { networkId: genForm.networkId, amount: amt, toAddress: undefined });
         }
-        notify('Simulated transaction generated');
+        notify('Transaction generated');
       } catch (err) {
         notify(err.message, { type: 'error' });
       } finally {

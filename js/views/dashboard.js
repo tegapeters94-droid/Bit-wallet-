@@ -1,70 +1,80 @@
 // js/views/dashboard.js
 import { getState } from '../state.js';
-import { renderShell, escapeHtml } from '../shell.js';
+import { renderShell } from '../shell.js';
 import { subscribeToPortfolio, subscribeToTransactions } from '../wallet.js';
 import { calculatePortfolioValue } from '../pricing.js';
-import { renderPortfolioChart } from '../chart.js';
-import { assetRowHtml, transactionRowHtml, emptyStateHtml, skeletonCardHtml, formatUsd } from '../components.js';
+import { renderPortfolioChart, CHART_RANGES } from '../chart.js';
+import {
+  assetRowHtml,
+  transactionRowHtml,
+  emptyStateHtml,
+  skeletonCardHtml,
+  formatUsd,
+  quickActionHtml,
+  QUICK_ACTION_ICONS,
+  mountRangeFilters,
+} from '../components.js';
 
 export function mount(container) {
   const content = renderShell(container);
-  const { profile, user } = getState();
-  const firstName = (profile?.name || 'there').split(' ')[0];
+  const { user } = getState();
+  let range = '1D';
 
   content.innerHTML = `
-    <div class="page-header">
-      <div>
-        <span class="page-eyebrow">Welcome back</span>
-        <h1>${escapeHtml(firstName)}'s wallet</h1>
-      </div>
-      <div class="page-header__actions">
-        <a href="#/send" class="btn btn--primary">Send</a>
-        <a href="#/receive" class="btn btn--ghost">Receive</a>
-      </div>
+    <div class="portfolio-card" id="portfolioCard">${skeletonCardHtml()}</div>
+
+    <div class="quick-actions">
+      ${quickActionHtml({ href: '#/receive', icon: QUICK_ACTION_ICONS.receive, label: 'Receive' })}
+      ${quickActionHtml({ href: '#/send', icon: QUICK_ACTION_ICONS.send, label: 'Send' })}
     </div>
 
-    <div class="glass-card glass-card--hero" id="heroCard">${skeletonCardHtml()}</div>
+    <section class="section-block">
+      <div class="section-head"><h3>Assets</h3><a href="#/assets" class="link-more">View all</a></div>
+      <div id="assetsList">${skeletonCardHtml()}${skeletonCardHtml()}${skeletonCardHtml()}</div>
+    </section>
 
-    <div class="dashboard-grid">
-      <section class="glass-card">
-        <div class="section-head"><h3>Assets</h3><a href="#/assets" class="link-more">View all</a></div>
-        <div id="assetsList">${skeletonCardHtml()}${skeletonCardHtml()}${skeletonCardHtml()}</div>
-      </section>
-
-      <section class="glass-card">
-        <div class="section-head"><h3>Recent activity</h3><a href="#/activity" class="link-more">View all</a></div>
-        <div id="txList">${skeletonCardHtml()}${skeletonCardHtml()}</div>
-      </section>
-    </div>
+    <section class="section-block">
+      <div class="section-head"><h3>Recent activity</h3><a href="#/activity" class="link-more">View all</a></div>
+      <div id="txList">${skeletonCardHtml()}${skeletonCardHtml()}</div>
+    </section>
   `;
 
   let latestAssets = null;
   let latestTx = [];
 
-  function renderHero() {
+  function renderPortfolio() {
     if (!latestAssets) return;
     const visible = Object.fromEntries(Object.entries(latestAssets).filter(([, a]) => a.balance > 0));
     const portfolio = calculatePortfolioValue(visible);
     const positive = portfolio.change24h >= 0;
+    const changeUsd = +(portfolio.total * (portfolio.change24h / 100)).toFixed(2);
 
-    const heroCard = content.querySelector('#heroCard');
-    heroCard.innerHTML = `
-      <div class="hero-balance">
-        <span class="page-eyebrow">Total balance</span>
-        <div class="hero-balance__figure"><span class="hero-balance__pulse"></span>${formatUsd(portfolio.total)}</div>
-        <div class="hero-balance__change ${positive ? 'is-up' : 'is-down'}">${positive ? '▲' : '▼'} ${Math.abs(portfolio.change24h)}% · last 24h (simulated)</div>
+    const card = content.querySelector('#portfolioCard');
+    card.innerHTML = `
+      <div class="portfolio-card__balance">
+        <span class="portfolio-card__label">Total balance</span>
+        <div class="portfolio-card__figure">${formatUsd(portfolio.total)}</div>
+        <div class="portfolio-card__change ${positive ? 'is-up' : 'is-down'}">
+          ${positive ? '+' : ''}${formatUsd(Math.abs(changeUsd))} · ${positive ? '+' : ''}${portfolio.change24h}%
+        </div>
       </div>
-      <div class="portfolio-chart"><canvas id="portfolioCanvas"></canvas></div>
+      <div class="portfolio-card__chart"><canvas id="portfolioCanvas"></canvas></div>
+      <div id="rangeFilters"></div>
     `;
-    const canvas = heroCard.querySelector('#portfolioCanvas');
-    requestAnimationFrame(() => renderPortfolioChart(canvas, portfolio.total, portfolio.change24h));
+
+    const canvas = card.querySelector('#portfolioCanvas');
+    requestAnimationFrame(() => renderPortfolioChart(canvas, portfolio.total, portfolio.change24h, range));
+    mountRangeFilters(card.querySelector('#rangeFilters'), CHART_RANGES, range, (r) => {
+      range = r;
+      renderPortfolio();
+    });
 
     const assetsList = content.querySelector('#assetsList');
     if (portfolio.breakdown.length === 0) {
       assetsList.innerHTML = emptyStateHtml({
         icon: '◈',
         title: 'No assets yet',
-        message: 'Simulate an incoming payment to see your portfolio come to life.',
+        message: 'Receive a payment to see your portfolio come to life.',
         actionHtml: `<a href="#/receive" class="btn btn--primary">Receive funds</a>`,
       });
     } else {
@@ -78,8 +88,8 @@ export function mount(container) {
     if (recent.length === 0) {
       txList.innerHTML = emptyStateHtml({
         icon: '☰',
-        title: 'No transactions yet',
-        message: 'Your sends, receives, and gas fees will show up here.',
+        title: 'No activity yet',
+        message: 'Your sends, receives, and network fees will show up here.',
       });
     } else {
       txList.innerHTML = `<div class="tx-list">${recent.map(transactionRowHtml).join('')}</div>`;
@@ -88,18 +98,18 @@ export function mount(container) {
 
   const unsubPortfolio = subscribeToPortfolio(user.uid, (data) => {
     latestAssets = data.assets || {};
-    renderHero();
+    renderPortfolio();
   });
   const unsubTx = subscribeToTransactions(user.uid, (tx) => {
     latestTx = tx;
     renderTx();
   });
 
-  window.addEventListener('resize', renderHero);
+  window.addEventListener('resize', renderPortfolio);
 
   return () => {
     unsubPortfolio();
     unsubTx();
-    window.removeEventListener('resize', renderHero);
+    window.removeEventListener('resize', renderPortfolio);
   };
 }
