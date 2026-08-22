@@ -75,6 +75,8 @@ export function quickActionHtml({ href, icon, label }) {
 export const QUICK_ACTION_ICONS = {
   receive: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v13M12 18l-5-5M12 18l5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   send: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 19V6M12 6l-5 5M12 6l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  buy: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M7 15h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  swap: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 8h13l-3-3M20 16H7l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
 };
 
 export function assetRowHtml({ networkId, balance, usdValue, change24h }) {
@@ -98,7 +100,13 @@ export function assetRowHtml({ networkId, balance, usdValue, change24h }) {
 function txTypeMeta(type) {
   if (type === 'received') return { label: 'Received', sign: '+', className: 'is-in', icon: inIcon() };
   if (type === 'sent') return { label: 'Sent', sign: '−', className: 'is-out', icon: outIcon() };
+  if (type === 'buy') return { label: 'Bought', sign: '+', className: 'is-in', icon: inIcon() };
+  if (type === 'swap') return { label: 'Swapped', sign: '', className: 'is-swap', icon: swapIcon() };
   return { label: 'Network fee', sign: '−', className: 'is-gas', icon: gasIcon() };
+}
+
+function swapIcon() {
+  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 8h13l-3-3M20 16H7l3 3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
 function inIcon() {
@@ -114,7 +122,13 @@ function gasIcon() {
 export function transactionRowHtml(tx) {
   const meta = txTypeMeta(tx.type);
   const net = getNetwork(tx.networkId);
+  const toNet = tx.toNetworkId ? getNetwork(tx.toNetworkId) : null;
   const date = new Date(tx.timestamp);
+  const amountLabel =
+    tx.type === 'swap' && toNet
+      ? `${tx.amount} ${tx.asset} → ${tx.toAmount} ${tx.toAsset}`
+      : `${meta.sign}${tx.amount} ${tx.asset}`;
+
   return `
     <a href="#/asset/${tx.networkId}" class="tx-row" data-tx-id="${tx.docId}">
       <div class="tx-row__icon">
@@ -123,8 +137,8 @@ export function transactionRowHtml(tx) {
       </div>
       <div class="tx-row__main">
         <div class="tx-row__top">
-          <span class="tx-row__label">${meta.label} ${net?.symbol ?? ''}</span>
-          <span class="tx-row__amount ${meta.className}">${meta.sign}${tx.amount} ${tx.asset}</span>
+          <span class="tx-row__label">${meta.label}${tx.type === 'swap' ? '' : ` ${net?.symbol ?? ''}`}</span>
+          <span class="tx-row__amount ${meta.className}">${amountLabel}</span>
         </div>
         <div class="tx-row__bottom">
           <span>${date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
