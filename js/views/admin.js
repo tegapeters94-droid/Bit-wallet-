@@ -9,6 +9,7 @@ import {
   getUserPortfolio,
   updateAssetBalance,
   regenerateAddress,
+  setAssetAddress,
   removeAsset,
   resetPortfolio,
   simulateIncomingPayment,
@@ -264,6 +265,8 @@ export function mount(container) {
 function mountAdminUserPanel(detailEl, user) {
   let assets = null;
   let draftBalances = {};
+  let draftAddresses = {};
+  let savingAddress = null;
   let transactions = [];
   let savingNetwork = null;
   let busy = false;
@@ -285,13 +288,19 @@ function mountAdminUserPanel(detailEl, user) {
           <div class="admin-balance-grid">
             ${NETWORKS.map(
               (n) => `
-              <div class="admin-balance-row">
-                ${networkIconHtml(n.id, 30)}
-                <span class="admin-balance-row__name">${n.symbol}</span>
-                <input type="number" step="any" data-balance-input="${n.id}" value="${draftBalances[n.id] ?? '0'}" />
-                <button class="btn btn--ghost btn--sm" data-save="${n.id}" ${savingNetwork === n.id ? 'disabled' : ''}>${savingNetwork === n.id ? '…' : 'Save'}</button>
-                <button class="btn btn--ghost btn--sm" data-regen="${n.id}">Regen addr</button>
-                <button class="btn btn--ghost btn--sm" data-remove="${n.id}">Remove</button>
+              <div class="admin-token-card">
+                <div class="admin-token-card__top">
+                  ${networkIconHtml(n.id, 30)}
+                  <span class="admin-balance-row__name">${n.symbol}</span>
+                  <input type="number" step="any" data-balance-input="${n.id}" value="${draftBalances[n.id] ?? '0'}" />
+                  <button class="btn btn--ghost btn--sm" data-save="${n.id}" ${savingNetwork === n.id ? 'disabled' : ''}>${savingNetwork === n.id ? '…' : 'Save'}</button>
+                </div>
+                <div class="admin-token-card__address">
+                  <input class="mono" type="text" data-address-input="${n.id}" value="${escapeHtml(draftAddresses[n.id] ?? '')}" placeholder="No address yet" />
+                  <button class="btn btn--ghost btn--sm" data-save-address="${n.id}" ${savingAddress === n.id ? 'disabled' : ''}>${savingAddress === n.id ? '…' : 'Save address'}</button>
+                  <button class="btn btn--ghost btn--sm" data-regen="${n.id}">Random</button>
+                  <button class="btn btn--ghost btn--sm" data-remove="${n.id}">Remove asset</button>
+                </div>
               </div>`
             ).join('')}
           </div>
@@ -353,6 +362,35 @@ function mountAdminUserPanel(detailEl, user) {
       });
     });
 
+    detailEl.querySelectorAll('[data-address-input]').forEach((input) => {
+      input.addEventListener('input', (e) => {
+        draftAddresses[input.getAttribute('data-address-input')] = e.target.value;
+      });
+    });
+
+    detailEl.querySelectorAll('[data-save-address]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const networkId = btn.getAttribute('data-save-address');
+        const value = (draftAddresses[networkId] ?? '').trim();
+        if (!value) {
+          notify('Enter an address', { type: 'error' });
+          return;
+        }
+        savingAddress = networkId;
+        render();
+        try {
+          await setAssetAddress(user.uid, networkId, value);
+          assets[networkId] = { ...(assets[networkId] || {}), address: value };
+          notify(`${getNetwork(networkId)?.name ?? networkId} address updated`);
+        } catch (err) {
+          notify(`Could not update address: ${err.message}`, { type: 'error' });
+        } finally {
+          savingAddress = null;
+          render();
+        }
+      });
+    });
+
     detailEl.querySelectorAll('[data-save]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const networkId = btn.getAttribute('data-save');
@@ -405,7 +443,9 @@ function mountAdminUserPanel(detailEl, user) {
         try {
           const addr = await regenerateAddress(user.uid, networkId);
           assets[networkId] = { ...assets[networkId], address: addr };
+          draftAddresses[networkId] = addr;
           notify('Address regenerated');
+          render();
         } catch (err) {
           notify(`Could not regenerate address: ${err.message}`, { type: 'error' });
         }
@@ -434,6 +474,7 @@ function mountAdminUserPanel(detailEl, user) {
         const fresh = await resetPortfolio(user.uid);
         assets = fresh;
         draftBalances = Object.fromEntries(Object.entries(fresh).map(([k, v]) => [k, String(v.balance)]));
+        draftAddresses = Object.fromEntries(Object.entries(fresh).map(([k, v]) => [k, v.address || '']));
         notify('Portfolio reset to defaults');
       } catch (err) {
         notify(`Could not reset portfolio: ${err.message}`, { type: 'error' });
@@ -484,6 +525,7 @@ function mountAdminUserPanel(detailEl, user) {
     .then((p) => {
       assets = p.assets;
       draftBalances = Object.fromEntries(NETWORKS.map((n) => [n.id, String(p.assets[n.id]?.balance ?? 0)]));
+      draftAddresses = Object.fromEntries(NETWORKS.map((n) => [n.id, p.assets[n.id]?.address ?? '']));
       render();
     })
     .catch((err) => {
