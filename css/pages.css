@@ -127,6 +127,9 @@
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-lg);
   padding: 20px;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .asset-hero__top {
@@ -577,14 +580,40 @@
 .admin-balance-grid {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+
+.admin-token-card {
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: var(--bg-elevated);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.admin-token-card__top {
+  display: grid;
+  grid-template-columns: 30px 50px 1fr auto;
+  align-items: center;
   gap: 8px;
 }
 
-.admin-balance-row {
-  display: grid;
-  grid-template-columns: 30px 50px 1fr auto auto auto;
+.admin-token-card__address {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+.admin-token-card__address input {
+  flex: 1;
+  min-width: 140px;
+  font-size: 12px;
 }
 
 .admin-balance-row__name {
@@ -624,7 +653,7 @@
 
 @media (max-width: 900px) {
   .admin-layout { grid-template-columns: 1fr; }
-  .admin-balance-row { grid-template-columns: 26px 44px 1fr; row-gap: 6px; }
+  .admin-token-card__top { grid-template-columns: 26px 40px 1fr auto; }
   .admin-gen-form { grid-template-columns: 1fr 1fr; }
   .recovery-grid { grid-template-columns: repeat(2, 1fr); }
   .admin-token-form__row { grid-template-columns: 1fr; }

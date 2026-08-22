@@ -83,6 +83,9 @@
   border-radius: var(--radius-lg);
   padding: 20px;
   box-shadow: var(--shadow-card);
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 /* ---------- Portfolio card (dashboard hero) ---------- */

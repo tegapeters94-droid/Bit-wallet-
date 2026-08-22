@@ -263,6 +263,8 @@
   width: 100%;
   margin: 0 auto;
   flex: 1;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* ---------- Bottom nav (mobile) ---------- */
