@@ -181,6 +181,16 @@
   margin: 22px 0 8px;
 }
 
+@media (max-width: 380px) {
+  .quick-actions {
+    gap: 18px;
+  }
+  .quick-action__circle {
+    width: 46px;
+    height: 46px;
+  }
+}
+
 .quick-actions--compact {
   justify-content: flex-start;
   gap: 10px;
@@ -405,6 +415,8 @@
 .tx-row__dir.is-in { color: var(--success); }
 .tx-row__dir.is-out { color: var(--text-primary); }
 .tx-row__dir.is-gas { color: var(--warning); }
+.tx-row__dir.is-swap { color: var(--brand-primary); }
+.tx-row__amount.is-swap { color: var(--text-primary); font-size: 12.5px; }
 
 .tx-row__main {
   flex: 1;

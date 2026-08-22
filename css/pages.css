@@ -312,6 +312,70 @@
   to { transform: scale(1); opacity: 1; }
 }
 
+/* ---------- Swap ---------- */
+.swap-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.swap-box__label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.swap-box__row {
+  display: flex;
+  gap: 8px;
+}
+
+.swap-box__row input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.swap-box__row input:focus {
+  border: none;
+  outline: none;
+}
+
+.swap-box__row select {
+  width: auto;
+  min-width: 90px;
+}
+
+.swap-box__hint {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+.swap-flip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-card);
+  border: 1px solid var(--border-soft);
+  color: var(--text-secondary);
+  margin: -6px auto;
+  position: relative;
+  z-index: 2;
+}
+
+.swap-flip:hover {
+  color: var(--text-primary);
+  background: var(--surface-card-hover);
+}
+
 /* ---------- Settings ---------- */
 .settings-address-list {
   display: flex;
@@ -327,6 +391,7 @@
   border-radius: var(--radius-sm);
   background: var(--bg-elevated);
   border: 1px solid var(--border-hairline);
+  flex-wrap: wrap;
 }
 
 .settings-address-row__main {
@@ -559,4 +624,68 @@
   .admin-balance-row { grid-template-columns: 26px 44px 1fr; row-gap: 6px; }
   .admin-gen-form { grid-template-columns: 1fr 1fr; }
   .recovery-grid { grid-template-columns: repeat(2, 1fr); }
+  .admin-token-form__row { grid-template-columns: 1fr; }
+  .admin-token-row { grid-template-columns: 30px 1fr; row-gap: 8px; }
+  .admin-token-row input,
+  .admin-token-row button { grid-column: 2; width: auto; }
+}
+
+@media (max-width: 480px) {
+  .settings-address-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .settings-address-row > button {
+    width: 100%;
+  }
+}
+
+/* ---------- Admin custom tokens ---------- */
+.admin-token-form {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin: 12px 0;
+}
+
+.admin-token-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.admin-token-form input[type="color"] {
+  padding: 4px;
+  height: 42px;
+}
+
+.admin-token-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.admin-token-row {
+  display: grid;
+  grid-template-columns: 30px 1fr auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+}
+
+.admin-token-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-token-row__main span {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
 }
