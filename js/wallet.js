@@ -227,6 +227,22 @@ export async function regenerateAddress(uid, networkId) {
 }
 
 /**
+ * setAssetAddress(uid, networkId, address)
+ * Admin-only: sets a specific address for a user's asset, rather than
+ * generating a random one. Used when an admin needs a user's receiving
+ * address to be a known, fixed value instead of regenerating it.
+ */
+export async function setAssetAddress(uid, networkId, address) {
+  const trimmed = address.trim();
+  if (!trimmed) throw new Error('Address cannot be empty.');
+  await updateDoc(portfolioRef(uid), {
+    [`assets.${networkId}.address`]: trimmed,
+    updatedAt: serverTimestamp(),
+  });
+  return trimmed;
+}
+
+/**
  * ensureAssetEntry(uid, networkId)
  * Backfills a portfolio with a fresh address + zero balance for a network
  * the user doesn't have an entry for yet — happens when a custom token is
