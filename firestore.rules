@@ -1,0 +1,46 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      // Users may create/update their own profile, but can never set their
+      // own `role` field — only an admin (or the developer, via console) can.
+      allow create: if isOwner(uid) && request.resource.data.role == 'user';
+      allow update: if (isOwner(uid) && request.resource.data.role == resource.data.role) || isAdmin();
+      allow delete: if false;
+
+      match /wallet/{doc} {
+        allow read, write: if isOwner(uid) || isAdmin();
+      }
+
+      match /transactions/{txId} {
+        allow read, create, update: if isOwner(uid) || isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Custom (admin-created) token definitions. Readable by anyone — it's
+    // just token metadata (name/symbol/price/max supply), not user data —
+    // but only an admin can create, edit, or delete one.
+    match /customTokens/{tokenId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
