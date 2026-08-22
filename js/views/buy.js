@@ -3,7 +3,7 @@ import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
 import { simulatePurchase } from '../wallet.js';
 import { NETWORKS, getNetwork } from '../networks.js';
-import { getAssetPrice } from '../pricing.js';
+import { getAssetPrice, onPricesUpdated } from '../pricing.js';
 import { networkIconHtml, formatUsd } from '../components.js';
 import { notify } from '../toast.js';
 import { navigate } from '../router.js';
@@ -127,5 +127,6 @@ export function mount(container) {
   }
 
   render();
-  return () => {};
+  const unsubPrices = onPricesUpdated(render);
+  return () => unsubPrices();
 }

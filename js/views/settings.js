@@ -4,6 +4,7 @@ import { renderShell } from '../shell.js';
 import { subscribeToPortfolio, regenerateAddress, resetPortfolio } from '../wallet.js';
 import { NETWORKS } from '../networks.js';
 import { networkIconHtml } from '../components.js';
+import { onPricesUpdated } from '../pricing.js';
 import { notify } from '../toast.js';
 
 const PLACEHOLDER_PHRASE = ['orbit', 'canvas', 'maple', 'lantern', 'ember', 'quartz', 'ridge', 'harbor', 'meadow', 'signal', 'anchor', 'willow'];
@@ -147,6 +148,10 @@ export function mount(container) {
     assets = data.assets || {};
     render();
   });
+  const unsubPrices = onPricesUpdated(render);
 
-  return () => unsub();
+  return () => {
+    unsub();
+    unsubPrices();
+  };
 }

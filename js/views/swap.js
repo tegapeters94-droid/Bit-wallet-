@@ -3,7 +3,7 @@ import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
 import { subscribeToPortfolio, simulateSwap } from '../wallet.js';
 import { NETWORKS, getNetwork } from '../networks.js';
-import { getAssetPrice } from '../pricing.js';
+import { getAssetPrice, onPricesUpdated } from '../pricing.js';
 import { networkIconHtml } from '../components.js';
 import { notify } from '../toast.js';
 import { navigate } from '../router.js';
@@ -195,8 +195,14 @@ export function mount(container) {
     assets = data.assets || {};
     if (step === 'form') render();
   });
+  const unsubPrices = onPricesUpdated(() => {
+    if (step === 'form') render();
+  });
 
-  return () => unsub();
+  return () => {
+    unsub();
+    unsubPrices();
+  };
 }
 
 function swapFlipIcon() {

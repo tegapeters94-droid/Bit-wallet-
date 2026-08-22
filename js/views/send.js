@@ -5,6 +5,7 @@ import { subscribeToPortfolio, simulateOutgoingPayment } from '../wallet.js';
 import { NETWORKS, getNetwork } from '../networks.js';
 import { calculateGasFee } from '../txEngine.js';
 import { networkIconHtml } from '../components.js';
+import { onPricesUpdated } from '../pricing.js';
 import { notify } from '../toast.js';
 import { navigate } from '../router.js';
 
@@ -202,6 +203,12 @@ export function mount(container) {
     assets = data.assets || {};
     if (step === 'form') render();
   });
+  const unsubPrices = onPricesUpdated(() => {
+    if (step === 'form') render();
+  });
 
-  return () => unsub();
+  return () => {
+    unsub();
+    unsubPrices();
+  };
 }

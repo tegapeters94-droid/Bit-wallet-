@@ -20,7 +20,7 @@ export function mount(container) {
         <h1>
           One wallet, <span class="text-gradient">seven chains</span>,
           <br />
-          zero real money at risk.
+          entirely yours.
         </h1>
         <p class="landing__sub">
           Manage Ethereum, Bitcoin, Solana, and more from one clean, fast wallet —

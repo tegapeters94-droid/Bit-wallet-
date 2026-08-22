@@ -5,6 +5,7 @@ import { subscribeToPortfolio, simulateIncomingPayment, ensureAssetEntry } from 
 import { NETWORKS, getNetwork } from '../networks.js';
 import { networkIconHtml, copyButtonHtml, wireCopyButtons, mountNetworkSwitcher } from '../components.js';
 import { renderQrInto } from '../qr.js';
+import { onPricesUpdated } from '../pricing.js';
 import { notify } from '../toast.js';
 
 export function mount(container) {
@@ -100,6 +101,10 @@ export function mount(container) {
     assets = data.assets || {};
     render();
   });
+  const unsubPrices = onPricesUpdated(render);
 
-  return () => unsub();
+  return () => {
+    unsub();
+    unsubPrices();
+  };
 }
