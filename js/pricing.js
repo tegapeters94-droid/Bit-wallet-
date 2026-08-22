@@ -10,7 +10,7 @@
 
 import { NETWORKS, getNetwork } from './networks.js';
 
-const COINGECKO_URL = 'https://api.coingecko.com/api/v3/simple/price';
+const COINGECKO_URL = 'https://api.coingecko.com/api/v3/coins/markets';
 const REFRESH_INTERVAL_MS = 60000;
 
 let livePrices = {}; // { [coingeckoId]: { price, change24h } }
@@ -84,16 +84,25 @@ export async function refreshLivePrices() {
   if (ids.length === 0) return;
 
   try {
-    const url = `${COINGECKO_URL}?ids=${ids.join(',')}&vs_currencies=usd&include_24hr_change=true`;
+    const url = `${COINGECKO_URL}?vs_currency=usd&ids=${ids.join(',')}&price_change_percentage=24h`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`CoinGecko responded ${res.status}`);
     const data = await res.json();
 
     const next = {};
-    ids.forEach((id) => {
-      const entry = data[id];
-      if (entry && typeof entry.usd === 'number') {
-        next[id] = { price: entry.usd, change24h: +(entry.usd_24h_change ?? 0).toFixed(2) };
+    data.forEach((coin) => {
+      if (typeof coin.current_price === 'number') {
+        next[coin.id] = {
+          price: coin.current_price,
+          change24h: +(coin.price_change_percentage_24h ?? 0).toFixed(2),
+        };
+      }
+      // Real logo, straight from CoinGecko — applied to every network that
+      // shares this coingeckoId (e.g. Base and Ethereum both use ETH's logo).
+      if (coin.image) {
+        NETWORKS.filter((n) => n.builtin && n.coingeckoId === coin.id).forEach((n) => {
+          n.logoUrl = coin.image;
+        });
       }
     });
     if (Object.keys(next).length > 0) {

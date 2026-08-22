@@ -9,7 +9,13 @@ import { escapeHtml } from './shell.js';
 export function networkIconHtml(networkId, size = 40) {
   const net = getNetwork(networkId);
   if (!net) return '';
-  return `<div class="token-icon" style="width:${size}px;height:${size}px;font-size:${size * 0.42}px;background:${net.color}1c;border:1px solid ${net.color}40;color:${net.color};" aria-hidden="true">${net.glyph}</div>`;
+  const bg = `background:${net.color}1c;border:1px solid ${net.color}40;color:${net.color};`;
+  if (net.logoUrl) {
+    return `<div class="token-icon" style="width:${size}px;height:${size}px;${bg}overflow:hidden;" aria-hidden="true">
+      <img src="${net.logoUrl}" alt="" width="${size}" height="${size}" style="width:100%;height:100%;object-fit:cover;" onerror="this.remove()" />
+    </div>`;
+  }
+  return `<div class="token-icon" style="width:${size}px;height:${size}px;font-size:${size * 0.42}px;${bg}" aria-hidden="true">${net.glyph}</div>`;
 }
 
 export function statusBadgeHtml(status) {
