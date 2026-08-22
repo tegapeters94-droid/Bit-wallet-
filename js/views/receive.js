@@ -1,7 +1,7 @@
 // js/views/receive.js
 import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
-import { subscribeToPortfolio, simulateIncomingPayment } from '../wallet.js';
+import { subscribeToPortfolio, simulateIncomingPayment, ensureAssetEntry } from '../wallet.js';
 import { NETWORKS, getNetwork } from '../networks.js';
 import { networkIconHtml, copyButtonHtml, wireCopyButtons, mountNetworkSwitcher } from '../components.js';
 import { renderQrInto } from '../qr.js';
@@ -19,6 +19,12 @@ export function mount(container) {
   function render() {
     const net = getNetwork(networkId);
     const address = assets?.[networkId]?.address ?? '';
+
+    // A token created after this account already existed won't have an
+    // address entry yet — generate one on the fly the first time it's viewed.
+    if (assets && !address) {
+      ensureAssetEntry(user.uid, networkId).catch(() => {});
+    }
 
     content.innerHTML = `
       <div class="page-header">

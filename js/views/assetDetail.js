@@ -1,9 +1,9 @@
 // js/views/assetDetail.js
 import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
-import { subscribeToPortfolio, subscribeToTransactions } from '../wallet.js';
+import { subscribeToPortfolio, subscribeToTransactions, ensureAssetEntry } from '../wallet.js';
 import { getNetwork } from '../networks.js';
-import { calculatePortfolioValue } from '../pricing.js';
+import { calculatePortfolioValue, onPricesUpdated } from '../pricing.js';
 import { renderPortfolioChart, CHART_RANGES } from '../chart.js';
 import { renderQrInto } from '../qr.js';
 import { notify } from '../toast.js';
@@ -36,7 +36,12 @@ export function mount(container, params) {
 
   function render() {
     const assetData = latestAssets?.[networkId];
-    if (!assetData) return;
+    if (!assetData) {
+      // A token created after this account already existed won't have an
+      // entry yet — backfill one, then re-render once the snapshot updates.
+      if (latestAssets) ensureAssetEntry(user.uid, networkId).catch(() => {});
+      return;
+    }
 
     const visible = Object.fromEntries(Object.entries(latestAssets).filter(([, a]) => a.balance > 0));
     const portfolio = calculatePortfolioValue(visible);
@@ -124,9 +129,11 @@ export function mount(container, params) {
     latestTx = tx;
     render();
   });
+  const unsubPrices = onPricesUpdated(render);
 
   return () => {
     unsubPortfolio();
     unsubTx();
+    unsubPrices();
   };
 }

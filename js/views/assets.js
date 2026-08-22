@@ -2,7 +2,7 @@
 import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
 import { subscribeToPortfolio } from '../wallet.js';
-import { calculatePortfolioValue } from '../pricing.js';
+import { calculatePortfolioValue, onPricesUpdated } from '../pricing.js';
 import { assetRowHtml, emptyStateHtml, skeletonCardHtml, mountNetworkSwitcher, formatUsd } from '../components.js';
 
 export function mount(container) {
@@ -59,6 +59,10 @@ export function mount(container) {
     latestAssets = data.assets || {};
     renderList();
   });
+  const unsubPrices = onPricesUpdated(renderList);
 
-  return () => unsub();
+  return () => {
+    unsub();
+    unsubPrices();
+  };
 }

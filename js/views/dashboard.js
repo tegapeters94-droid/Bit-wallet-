@@ -2,7 +2,7 @@
 import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
 import { subscribeToPortfolio, subscribeToTransactions } from '../wallet.js';
-import { calculatePortfolioValue } from '../pricing.js';
+import { calculatePortfolioValue, onPricesUpdated } from '../pricing.js';
 import { renderPortfolioChart, CHART_RANGES } from '../chart.js';
 import {
   assetRowHtml,
@@ -25,6 +25,8 @@ export function mount(container) {
 
     <div class="quick-actions">
       ${quickActionHtml({ href: '#/receive', icon: QUICK_ACTION_ICONS.receive, label: 'Receive' })}
+      ${quickActionHtml({ href: '#/buy', icon: QUICK_ACTION_ICONS.buy, label: 'Buy' })}
+      ${quickActionHtml({ href: '#/swap', icon: QUICK_ACTION_ICONS.swap, label: 'Swap' })}
       ${quickActionHtml({ href: '#/send', icon: QUICK_ACTION_ICONS.send, label: 'Send' })}
     </div>
 
@@ -104,12 +106,14 @@ export function mount(container) {
     latestTx = tx;
     renderTx();
   });
+  const unsubPrices = onPricesUpdated(renderPortfolio);
 
   window.addEventListener('resize', renderPortfolio);
 
   return () => {
     unsubPortfolio();
     unsubTx();
+    unsubPrices();
     window.removeEventListener('resize', renderPortfolio);
   };
 }

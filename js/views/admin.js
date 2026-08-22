@@ -16,6 +16,13 @@ import {
   subscribeToTransactions,
   setTransactionStatus,
 } from '../wallet.js';
+import {
+  subscribeToCustomTokens,
+  createCustomToken,
+  updateCustomToken,
+  deleteCustomToken,
+  getCirculatingSupply,
+} from '../customTokens.js';
 
 export function mount(container) {
   const content = renderShell(container);
@@ -25,10 +32,14 @@ export function mount(container) {
   let loadingUsers = true;
   let selectedUid = null;
   let panelUnmount = null;
+  let customTokens = [];
 
   content.innerHTML = `
-    <div class="page-header"><div><span class="page-eyebrow">Restricted</span><h1>Admin panel</h1></div></div>
-    <div class="admin-layout">
+    <div class="page-header"><h1>Admin panel</h1></div>
+
+    <section class="card" id="tokenSection"></section>
+
+    <div class="admin-layout" style="margin-top:20px;">
       <div class="card admin-user-list">
         <label class="field"><span>Search users</span><input id="searchInput" placeholder="Name or email" /></label>
         <div id="userItems"></div>
@@ -39,6 +50,142 @@ export function mount(container) {
     </div>
   `;
 
+  // ---------- Custom tokens ----------
+  let tokenFormOpen = false;
+  let tokenForm = { id: '', name: '', symbol: '', price: '', maxSupply: '', color: '#8b6cf7' };
+  let tokenBusy = false;
+
+  function renderTokenSection() {
+    const el = content.querySelector('#tokenSection');
+    el.innerHTML = `
+      <div class="section-head"><h3>Custom tokens</h3>
+        <button class="btn btn--ghost btn--sm" id="toggleTokenForm">${tokenFormOpen ? 'Cancel' : 'Create token'}</button>
+      </div>
+      ${
+        tokenFormOpen
+          ? `<div class="admin-token-form">
+              <div class="admin-token-form__row">
+                <label class="field"><span>Token ID (lowercase, no spaces)</span><input id="tf_id" placeholder="mytoken" value="${escapeHtml(tokenForm.id)}" /></label>
+                <label class="field"><span>Name</span><input id="tf_name" placeholder="My Token" value="${escapeHtml(tokenForm.name)}" /></label>
+              </div>
+              <div class="admin-token-form__row">
+                <label class="field"><span>Symbol</span><input id="tf_symbol" placeholder="MTK" value="${escapeHtml(tokenForm.symbol)}" /></label>
+                <label class="field"><span>Color</span><input id="tf_color" type="color" value="${tokenForm.color}" /></label>
+              </div>
+              <div class="admin-token-form__row">
+                <label class="field"><span>Price (USD)</span><input id="tf_price" type="number" step="any" placeholder="1.00" value="${escapeHtml(tokenForm.price)}" /></label>
+                <label class="field"><span>Max supply (optional)</span><input id="tf_maxSupply" type="number" step="any" placeholder="Unlimited" value="${escapeHtml(tokenForm.maxSupply)}" /></label>
+              </div>
+              <button class="btn btn--primary" id="createTokenBtn" ${tokenBusy ? 'disabled' : ''}>${tokenBusy ? 'Creating…' : 'Create token'}</button>
+            </div>`
+          : ''
+      }
+      <div class="admin-token-list" id="tokenList">
+        ${
+          customTokens.length === 0
+            ? `<p class="auth-sub" style="margin-top:8px;">No custom tokens yet. They'll appear alongside the built-in networks once created.</p>`
+            : customTokens
+                .map(
+                  (t) => `
+              <div class="admin-token-row">
+                ${networkIconHtml(t.id, 30)}
+                <div class="admin-token-row__main">
+                  <strong>${escapeHtml(t.name)} <span class="mono" style="color:var(--text-tertiary);">${escapeHtml(t.symbol)}</span></strong>
+                  <span>Max supply: ${t.maxSupply != null ? t.maxSupply.toLocaleString() : 'Unlimited'}</span>
+                </div>
+                <input type="number" step="any" data-token-price="${t.id}" value="${t.price}" style="width:100px;" />
+                <button class="btn btn--ghost btn--sm" data-save-price="${t.id}">Save</button>
+                <button class="btn btn--ghost btn--sm" data-delete-token="${t.id}">Delete</button>
+              </div>`
+                )
+                .join('')
+        }
+      </div>
+    `;
+
+    el.querySelector('#toggleTokenForm').addEventListener('click', () => {
+      tokenFormOpen = !tokenFormOpen;
+      renderTokenSection();
+    });
+
+    if (tokenFormOpen) {
+      el.querySelector('#createTokenBtn').addEventListener('click', async () => {
+        const id = el.querySelector('#tf_id').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const name = el.querySelector('#tf_name').value.trim();
+        const symbol = el.querySelector('#tf_symbol').value.trim().toUpperCase();
+        const color = el.querySelector('#tf_color').value;
+        const price = parseFloat(el.querySelector('#tf_price').value);
+        const maxSupplyRaw = el.querySelector('#tf_maxSupply').value.trim();
+        const maxSupply = maxSupplyRaw ? parseFloat(maxSupplyRaw) : null;
+
+        if (!id || !name || !symbol) {
+          notify('Token ID, name, and symbol are required', { type: 'error' });
+          return;
+        }
+        if (getNetwork(id)) {
+          notify('That token ID is already in use', { type: 'error' });
+          return;
+        }
+        if (!price || price <= 0) {
+          notify('Enter a valid price greater than zero', { type: 'error' });
+          return;
+        }
+        tokenBusy = true;
+        renderTokenSection();
+        try {
+          await createCustomToken({ id, name, symbol, color, price, maxSupply });
+          notify(`${symbol} created`);
+          tokenForm = { id: '', name: '', symbol: '', price: '', maxSupply: '', color: '#8b6cf7' };
+          tokenFormOpen = false;
+        } catch (err) {
+          notify(`Could not create token: ${err.message}`, { type: 'error' });
+        } finally {
+          tokenBusy = false;
+          renderTokenSection();
+        }
+      });
+    }
+
+    el.querySelectorAll('[data-save-price]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-save-price');
+        const input = el.querySelector(`[data-token-price="${id}"]`);
+        const price = parseFloat(input.value);
+        if (!price || price <= 0) {
+          notify('Enter a valid price', { type: 'error' });
+          return;
+        }
+        try {
+          await updateCustomToken(id, { price });
+          notify('Price updated');
+        } catch (err) {
+          notify(`Could not update price: ${err.message}`, { type: 'error' });
+        }
+      });
+    });
+
+    el.querySelectorAll('[data-delete-token]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-delete-token');
+        try {
+          await deleteCustomToken(id);
+          notify('Token deleted');
+        } catch (err) {
+          notify(`Could not delete token: ${err.message}`, { type: 'error' });
+        }
+      });
+    });
+  }
+
+  const unsubTokens = subscribeToCustomTokens((tokens) => {
+    customTokens = tokens;
+    renderTokenSection();
+    // A token was added/removed — the per-user balance grid (which lists
+    // every entry in NETWORKS) should reflect that if a user is selected.
+    if (selectedUid) mountDetail();
+  });
+
+  // ---------- User list ----------
   function renderUserList() {
     const el = content.querySelector('#userItems');
     if (loadingUsers) {
@@ -96,12 +243,13 @@ export function mount(container) {
     renderUserList();
   });
 
+  renderTokenSection();
   renderUserList();
   listAllUsers()
     .then((list) => {
       users = list;
     })
-    .catch(() => notify('Could not load users', { type: 'error' }))
+    .catch((err) => notify(`Could not load users: ${err.message}`, { type: 'error' }))
     .finally(() => {
       loadingUsers = false;
       renderUserList();
@@ -109,6 +257,7 @@ export function mount(container) {
 
   return () => {
     if (panelUnmount) panelUnmount();
+    unsubTokens();
   };
 }
 
@@ -126,7 +275,7 @@ function mountAdminUserPanel(detailEl, user) {
       return;
     }
     const portfolioValue = calculatePortfolioValue(
-      Object.fromEntries(Object.entries(assets).map(([k, v]) => [k, { balance: v.balance }]))
+      Object.fromEntries(NETWORKS.map((n) => [n.id, { balance: assets[n.id]?.balance ?? 0 }]))
     );
 
     detailEl.innerHTML = `
@@ -139,7 +288,7 @@ function mountAdminUserPanel(detailEl, user) {
               <div class="admin-balance-row">
                 ${networkIconHtml(n.id, 30)}
                 <span class="admin-balance-row__name">${n.symbol}</span>
-                <input type="number" step="any" data-balance-input="${n.id}" value="${draftBalances[n.id] ?? ''}" />
+                <input type="number" step="any" data-balance-input="${n.id}" value="${draftBalances[n.id] ?? '0'}" />
                 <button class="btn btn--ghost btn--sm" data-save="${n.id}" ${savingNetwork === n.id ? 'disabled' : ''}>${savingNetwork === n.id ? '…' : 'Save'}</button>
                 <button class="btn btn--ghost btn--sm" data-regen="${n.id}">Regen addr</button>
                 <button class="btn btn--ghost btn--sm" data-remove="${n.id}">Remove</button>
@@ -207,19 +356,42 @@ function mountAdminUserPanel(detailEl, user) {
     detailEl.querySelectorAll('[data-save]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const networkId = btn.getAttribute('data-save');
-        const val = parseFloat(draftBalances[networkId]);
-        if (Number.isNaN(val) || val < 0) {
+        const raw = draftBalances[networkId];
+        const val = parseFloat(raw);
+        if (raw === undefined || raw === '' || Number.isNaN(val) || val < 0) {
           notify('Enter a valid non-negative balance', { type: 'error' });
           return;
         }
+
+        const net = getNetwork(networkId);
+        if (net && !net.builtin && net.maxSupply != null) {
+          try {
+            const othersSupply = await getCirculatingSupply(networkId, { excludeUid: user.uid });
+            if (othersSupply + val > net.maxSupply) {
+              notify(`This would exceed ${net.symbol}'s max supply of ${net.maxSupply.toLocaleString()} (${othersSupply.toLocaleString()} already held by other users)`, { type: 'error' });
+              return;
+            }
+          } catch (err) {
+            notify(`Could not verify supply cap: ${err.message}`, { type: 'error' });
+            return;
+          }
+        }
+
         savingNetwork = networkId;
         render();
         try {
+          // A custom token created after this user's portfolio was first
+          // set up won't have an address entry yet — generate one before
+          // writing a balance so Send/Receive/Asset pages don't break.
+          if (!assets[networkId]?.address) {
+            const addr = await regenerateAddress(user.uid, networkId);
+            assets[networkId] = { ...(assets[networkId] || {}), address: addr };
+          }
           await updateAssetBalance(user.uid, networkId, val);
-          assets[networkId] = { ...assets[networkId], balance: val };
-          notify(`${getNetwork(networkId).name} balance updated`);
-        } catch {
-          notify('Could not update balance', { type: 'error' });
+          assets[networkId] = { ...(assets[networkId] || {}), balance: val };
+          notify(`${net?.name ?? networkId} balance updated`);
+        } catch (err) {
+          notify(`Could not update balance: ${err.message}`, { type: 'error' });
         } finally {
           savingNetwork = null;
           render();
@@ -234,8 +406,8 @@ function mountAdminUserPanel(detailEl, user) {
           const addr = await regenerateAddress(user.uid, networkId);
           assets[networkId] = { ...assets[networkId], address: addr };
           notify('Address regenerated');
-        } catch {
-          notify('Could not regenerate address', { type: 'error' });
+        } catch (err) {
+          notify(`Could not regenerate address: ${err.message}`, { type: 'error' });
         }
       });
     });
@@ -243,11 +415,15 @@ function mountAdminUserPanel(detailEl, user) {
     detailEl.querySelectorAll('[data-remove]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const networkId = btn.getAttribute('data-remove');
-        await removeAsset(user.uid, networkId);
-        assets[networkId] = { ...assets[networkId], balance: 0 };
-        draftBalances[networkId] = '0';
-        notify(`${getNetwork(networkId).name} asset removed`);
-        render();
+        try {
+          await removeAsset(user.uid, networkId);
+          assets[networkId] = { ...assets[networkId], balance: 0 };
+          draftBalances[networkId] = '0';
+          notify(`${getNetwork(networkId)?.name ?? networkId} asset removed`);
+          render();
+        } catch (err) {
+          notify(`Could not remove asset: ${err.message}`, { type: 'error' });
+        }
       });
     });
 
@@ -259,6 +435,8 @@ function mountAdminUserPanel(detailEl, user) {
         assets = fresh;
         draftBalances = Object.fromEntries(Object.entries(fresh).map(([k, v]) => [k, String(v.balance)]));
         notify('Portfolio reset to defaults');
+      } catch (err) {
+        notify(`Could not reset portfolio: ${err.message}`, { type: 'error' });
       } finally {
         busy = false;
         render();
@@ -284,7 +462,7 @@ function mountAdminUserPanel(detailEl, user) {
         }
         notify('Transaction generated');
       } catch (err) {
-        notify(err.message, { type: 'error' });
+        notify(`Could not generate transaction: ${err.message}`, { type: 'error' });
       } finally {
         busy = false;
         render();
@@ -292,17 +470,25 @@ function mountAdminUserPanel(detailEl, user) {
     });
 
     detailEl.querySelectorAll('[data-tx-status]').forEach((sel) => {
-      sel.addEventListener('change', (e) => {
-        setTransactionStatus(user.uid, sel.getAttribute('data-tx-status'), e.target.value);
+      sel.addEventListener('change', async (e) => {
+        try {
+          await setTransactionStatus(user.uid, sel.getAttribute('data-tx-status'), e.target.value);
+        } catch (err) {
+          notify(`Could not update status: ${err.message}`, { type: 'error' });
+        }
       });
     });
   }
 
-  getUserPortfolio(user.uid).then((p) => {
-    assets = p.assets;
-    draftBalances = Object.fromEntries(Object.entries(p.assets).map(([k, v]) => [k, String(v.balance)]));
-    render();
-  });
+  getUserPortfolio(user.uid)
+    .then((p) => {
+      assets = p.assets;
+      draftBalances = Object.fromEntries(NETWORKS.map((n) => [n.id, String(p.assets[n.id]?.balance ?? 0)]));
+      render();
+    })
+    .catch((err) => {
+      detailEl.innerHTML = `<div class="card">Could not load this user's portfolio: ${escapeHtml(err.message)}</div>`;
+    });
 
   const unsubTx = subscribeToTransactions(user.uid, (tx) => {
     transactions = tx.slice(0, 25);
