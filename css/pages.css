@@ -199,6 +199,13 @@
   white-space: nowrap;
 }
 
+/* Chart wrapper on the Asset Detail page (the dashboard's own balance
+   chart was removed as part of the balance-first redesign, but each
+   individual asset still gets its own price chart here). */
+.portfolio-card__chart {
+  margin-top: 4px;
+}
+
 .qr-frame canvas {
   border-radius: var(--radius-sm);
 }
@@ -445,6 +452,7 @@
   justify-content: space-between;
   width: 100%;
   text-align: left;
+  padding: 2px 0;
 }
 
 .settings-disclosure-toggle__chevron {

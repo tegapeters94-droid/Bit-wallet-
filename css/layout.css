@@ -169,7 +169,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 28px;
+  padding: 15px 24px;
   border-bottom: 1px solid var(--border-hairline);
   position: sticky;
   top: 0;
@@ -181,25 +181,35 @@
 .wallet-topbar__identity {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   cursor: pointer;
   min-width: 0;
+  padding: 4px 6px 4px 4px;
+  border-radius: var(--radius-full);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.wallet-topbar__identity:hover {
+  background: var(--surface-card);
 }
 
 .wallet-topbar__text {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  gap: 1px;
 }
 
 .wallet-topbar__text strong {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .wallet-topbar__text .mono {
   font-size: 11.5px;
   color: var(--text-tertiary);
+  font-weight: 500;
 }
 
 .icon-btn {
@@ -424,10 +434,11 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 64px;
-    background: rgba(10, 11, 15, 0.92);
-    backdrop-filter: blur(16px);
+    height: 66px;
+    background: rgba(12, 13, 17, 0.94);
+    backdrop-filter: blur(18px);
     border-top: 1px solid var(--border-hairline);
+    box-shadow: 0 -8px 24px -12px rgba(0, 0, 0, 0.5);
     z-index: 30;
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -438,21 +449,32 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 4px;
     color: var(--text-tertiary);
     font-size: 10.5px;
     font-weight: 500;
+    position: relative;
+    transition: color var(--dur-fast) var(--ease-out);
   }
 
   .bottom-nav__item.is-active {
     color: var(--text-primary);
+    font-weight: 600;
   }
 
   .bottom-nav__icon {
     display: flex;
+    padding: 4px 14px;
+    border-radius: var(--radius-full);
+    transition: background var(--dur-fast) var(--ease-out);
   }
 
   .bottom-nav__item.is-active .bottom-nav__icon {
     color: var(--brand-primary);
+    background: var(--brand-primary-soft);
+  }
+
+  .bottom-nav__item:active .bottom-nav__icon {
+    transform: scale(0.92);
   }
 }

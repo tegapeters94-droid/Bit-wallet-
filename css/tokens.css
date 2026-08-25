@@ -24,9 +24,11 @@
   --warning: #f5a623;
   --warning-soft: rgba(245, 166, 35, 0.12);
 
-  /* Type */
-  --font-display: 'Space Grotesk', 'Inter', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  /* Type — a single primary typeface throughout. Both variables point to
+     the same family so every existing var(--font-display)/var(--font-body)
+     usage across the CSS stays consistent without needing renamed. */
+  --font-display: 'Manrope', sans-serif;
+  --font-body: 'Manrope', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Radius — controlled, not maximal */
@@ -89,6 +91,10 @@ a {
 button {
   font-family: inherit;
   cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
 }
 
 ::selection {

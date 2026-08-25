@@ -89,65 +89,114 @@
 }
 
 /* ---------- Portfolio card (dashboard hero) ---------- */
-.portfolio-card {
-  background: linear-gradient(155deg, #16171e 0%, #101116 100%);
+.balance-card {
+  background: linear-gradient(160deg, #16171e 0%, #0e0f13 100%);
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-lg);
-  padding: 22px 22px 8px;
+  padding: 22px;
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow-raised);
 }
 
-.portfolio-card::before {
+.balance-card::before {
   content: '';
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(500px 260px at 85% -10%, rgba(91, 109, 250, 0.16), transparent 60%),
-    radial-gradient(400px 220px at 100% 100%, rgba(124, 92, 240, 0.1), transparent 60%);
+  background: radial-gradient(420px 220px at 88% -15%, rgba(91, 109, 250, 0.14), transparent 62%);
   pointer-events: none;
 }
 
-.portfolio-card__balance {
+.balance-card__identity {
   position: relative;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
 }
 
-.portfolio-card__label {
+.balance-card__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.balance-card__address {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.balance-card__row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.balance-card__label {
   font-size: 12.5px;
   color: var(--text-tertiary);
   font-weight: 500;
 }
 
-.portfolio-card__figure {
-  font-family: var(--font-display);
-  font-size: 38px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin-top: 6px;
+.eye-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  transition: color var(--dur-fast), background var(--dur-fast);
 }
 
-.portfolio-card__change {
+.eye-btn:hover {
+  color: var(--text-secondary);
+  background: var(--surface-card);
+}
+
+.eye-btn svg {
+  transition: transform var(--dur-med) var(--ease-out);
+}
+
+.eye-btn:active svg {
+  transform: scale(0.85);
+}
+
+.balance-card__figure {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 4px;
+  transition: opacity var(--dur-fast);
+}
+
+.balance-card__figure.is-hidden {
+  letter-spacing: 0.02em;
+}
+
+.balance-card__change {
+  position: relative;
+  z-index: 1;
   font-size: 13.5px;
   font-weight: 600;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
-.portfolio-card__change.is-up {
+.balance-card__change.is-up {
   color: var(--success);
 }
-.portfolio-card__change.is-down {
+.balance-card__change.is-down {
   color: var(--danger);
 }
 
-.portfolio-card__chart {
-  margin-top: 14px;
-  position: relative;
-  z-index: 1;
-}
-
-/* ---------- Range filters ---------- */
+/* ---------- Range filters (Asset Detail page chart) ---------- */
 .range-filters {
   display: flex;
   gap: 4px;
@@ -179,19 +228,9 @@
 /* ---------- Quick actions ---------- */
 .quick-actions {
   display: flex;
-  justify-content: center;
-  gap: 28px;
-  margin: 22px 0 8px;
-}
-
-@media (max-width: 380px) {
-  .quick-actions {
-    gap: 18px;
-  }
-  .quick-action__circle {
-    width: 46px;
-    height: 46px;
-  }
+  justify-content: space-between;
+  gap: 10px;
+  margin: 20px 0 4px;
 }
 
 .quick-actions--compact {
@@ -205,33 +244,52 @@
 }
 
 .quick-action {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
 }
 
 .quick-action__circle {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
+  width: 100%;
+  max-width: 64px;
+  aspect-ratio: 1;
+  border-radius: 18px;
   background: var(--surface-card);
   border: 1px solid var(--border-soft);
   display: grid;
   place-items: center;
   color: var(--text-primary);
-  transition: background var(--dur-fast), transform var(--dur-fast);
+  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast);
 }
 
 .quick-action:hover .quick-action__circle {
   background: var(--surface-card-hover);
+  border-color: var(--brand-primary);
   transform: translateY(-1px);
 }
 
+.quick-action:active .quick-action__circle {
+  transform: scale(0.94);
+}
+
 .quick-action__label {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
+}
+
+@media (max-width: 380px) {
+  .quick-actions {
+    gap: 6px;
+  }
+  .quick-action__circle {
+    border-radius: 15px;
+  }
+  .quick-action__label {
+    font-size: 11px;
+  }
 }
 
 /* ---------- Token icon ---------- */
@@ -316,13 +374,18 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 6px;
+  padding: 12px 8px;
   border-radius: var(--radius-md);
-  transition: background var(--dur-fast);
+  transition: background var(--dur-fast) var(--ease-out);
+  cursor: pointer;
 }
 
 .asset-row:hover {
   background: var(--surface-card);
+}
+
+.asset-row:active {
+  background: var(--surface-card-hover);
 }
 
 .asset-row__main {
@@ -332,13 +395,15 @@
 
 .asset-row__name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 14.5px;
+  color: var(--text-primary);
 }
 
 .asset-row__sub {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-tertiary);
   margin-top: 2px;
+  font-weight: 500;
 }
 
 .asset-row__value {
@@ -346,14 +411,15 @@
 }
 
 .asset-row__usd {
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-primary);
 }
 
 .asset-row__change {
-  font-size: 12px;
-  margin-top: 2px;
-  font-weight: 500;
+  font-size: 11.5px;
+  margin-top: 3px;
+  font-weight: 600;
 }
 
 .asset-row__change.is-up {
@@ -388,13 +454,17 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 6px;
+  padding: 12px 8px;
   border-radius: var(--radius-md);
-  transition: background var(--dur-fast);
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .tx-row:hover {
   background: var(--surface-card);
+}
+
+.tx-row:active {
+  background: var(--surface-card-hover);
 }
 
 .tx-row__icon {
@@ -718,6 +788,15 @@ select:focus {
 .copy-btn:hover {
   color: var(--text-primary);
   background: var(--surface-card-hover);
+}
+
+.copy-btn--tiny {
+  padding: 4px 5px;
+  gap: 0;
+}
+
+.copy-btn--tiny svg {
+  display: block;
 }
 
 .text-gradient {
