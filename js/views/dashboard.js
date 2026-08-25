@@ -1,9 +1,10 @@
 // js/views/dashboard.js
 import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
-import { subscribeToPortfolio, subscribeToTransactions } from '../wallet.js';
+import { subscribeToPortfolio, subscribeToTransactions, getUserPortfolio } from '../wallet.js';
 import { calculatePortfolioValue, onPricesUpdated } from '../pricing.js';
-import { renderPortfolioChart, CHART_RANGES } from '../chart.js';
+import { shortenAddress } from '../address.js';
+import { notify } from '../toast.js';
 import {
   assetRowHtml,
   transactionRowHtml,
@@ -12,16 +13,21 @@ import {
   formatUsd,
   quickActionHtml,
   QUICK_ACTION_ICONS,
-  mountRangeFilters,
+  wireCopyButtons,
+  eyeIconHtml,
 } from '../components.js';
+
+const HIDE_BALANCE_KEY = 'bitwallet_balance_hidden';
 
 export function mount(container) {
   const content = renderShell(container);
-  const { user } = getState();
-  let range = '1D';
+  const { user, profile } = getState();
+  const firstName = (profile?.name || 'My').split(' ')[0];
+  let balanceHidden = window.localStorage.getItem(HIDE_BALANCE_KEY) === '1';
+  let primaryAddress = '';
 
   content.innerHTML = `
-    <div class="portfolio-card" id="portfolioCard">${skeletonCardHtml()}</div>
+    <div class="balance-card" id="balanceCard">${skeletonCardHtml()}</div>
 
     <div class="quick-actions">
       ${quickActionHtml({ href: '#/receive', icon: QUICK_ACTION_ICONS.receive, label: 'Receive' })}
@@ -44,32 +50,46 @@ export function mount(container) {
   let latestAssets = null;
   let latestTx = [];
 
-  function renderPortfolio() {
+  function renderBalanceCard() {
     if (!latestAssets) return;
     const visible = Object.fromEntries(Object.entries(latestAssets).filter(([, a]) => a.balance > 0));
     const portfolio = calculatePortfolioValue(visible);
     const positive = portfolio.change24h >= 0;
     const changeUsd = +(portfolio.total * (portfolio.change24h / 100)).toFixed(2);
 
-    const card = content.querySelector('#portfolioCard');
+    const balanceDisplay = balanceHidden ? '$••••••' : formatUsd(portfolio.total);
+    const changeDisplay = balanceHidden
+      ? `${positive ? '+' : ''}${portfolio.change24h}% today`
+      : `${positive ? '+' : ''}${formatUsd(Math.abs(changeUsd))} · ${positive ? '+' : ''}${portfolio.change24h}% today`;
+
+    const card = content.querySelector('#balanceCard');
     card.innerHTML = `
-      <div class="portfolio-card__balance">
-        <span class="portfolio-card__label">Total balance</span>
-        <div class="portfolio-card__figure">${formatUsd(portfolio.total)}</div>
-        <div class="portfolio-card__change ${positive ? 'is-up' : 'is-down'}">
-          ${positive ? '+' : ''}${formatUsd(Math.abs(changeUsd))} · ${positive ? '+' : ''}${portfolio.change24h}%
-        </div>
+      <div class="balance-card__identity">
+        <span class="balance-card__name">${firstName}'s Wallet</span>
+        ${
+          primaryAddress
+            ? `<span class="balance-card__address mono" id="dashAddrText">${shortenAddress(primaryAddress, 4)}</span>
+               <button class="copy-btn copy-btn--tiny" data-copy-target="dashAddrText" data-copy-text="${primaryAddress}" type="button">${copyIconHtml()}</button>`
+            : ''
+        }
       </div>
-      <div class="portfolio-card__chart"><canvas id="portfolioCanvas"></canvas></div>
-      <div id="rangeFilters"></div>
+
+      <div class="balance-card__row">
+        <span class="balance-card__label">Total balance</span>
+        <button class="eye-btn" id="eyeToggle" aria-label="${balanceHidden ? 'Show balance' : 'Hide balance'}" aria-pressed="${balanceHidden}">
+          ${eyeIconHtml(balanceHidden)}
+        </button>
+      </div>
+      <div class="balance-card__figure ${balanceHidden ? 'is-hidden' : ''}">${balanceDisplay}</div>
+      <div class="balance-card__change ${positive ? 'is-up' : 'is-down'}">${changeDisplay}</div>
     `;
 
-    const canvas = card.querySelector('#portfolioCanvas');
-    requestAnimationFrame(() => renderPortfolioChart(canvas, portfolio.total, portfolio.change24h, range));
-    mountRangeFilters(card.querySelector('#rangeFilters'), CHART_RANGES, range, (r) => {
-      range = r;
-      renderPortfolio();
+    card.querySelector('#eyeToggle').addEventListener('click', () => {
+      balanceHidden = !balanceHidden;
+      window.localStorage.setItem(HIDE_BALANCE_KEY, balanceHidden ? '1' : '0');
+      renderBalanceCard();
     });
+    wireCopyButtons(card, { onCopied: () => notify('Address copied') });
 
     const assetsList = content.querySelector('#assetsList');
     if (portfolio.breakdown.length === 0) {
@@ -98,22 +118,30 @@ export function mount(container) {
     }
   }
 
+  // One-time read for the identity row's address — not a live subscription,
+  // consistent with how the shell's own topbar fetches it.
+  getUserPortfolio(user.uid).then((p) => {
+    primaryAddress = p.assets?.ethereum?.address || '';
+    renderBalanceCard();
+  });
+
   const unsubPortfolio = subscribeToPortfolio(user.uid, (data) => {
     latestAssets = data.assets || {};
-    renderPortfolio();
+    renderBalanceCard();
   });
   const unsubTx = subscribeToTransactions(user.uid, (tx) => {
     latestTx = tx;
     renderTx();
   });
-  const unsubPrices = onPricesUpdated(renderPortfolio);
-
-  window.addEventListener('resize', renderPortfolio);
+  const unsubPrices = onPricesUpdated(renderBalanceCard);
 
   return () => {
     unsubPortfolio();
     unsubTx();
     unsubPrices();
-    window.removeEventListener('resize', renderPortfolio);
   };
+}
+
+function copyIconHtml() {
+  return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10" stroke="currentColor" stroke-width="2"/></svg>`;
 }
