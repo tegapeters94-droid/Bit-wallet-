@@ -245,6 +245,13 @@ export function mountRangeFilters(mountEl, ranges, value, onChange) {
   });
 }
 
+export function eyeIconHtml(hidden) {
+  if (hidden) {
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6 0 9.5 5.5 9.9 7a10.3 10.3 0 0 1-2.6 3.9M6.6 6.6C3.6 8.4 1.9 11.5 1.6 12c.4 1.5 3.9 7 10.4 7 1.4 0 2.6-.25 3.7-.68" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M1.6 12S5.1 5 12 5s10.4 7 10.4 7-3.5 7-10.4 7S1.6 12 1.6 12Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>`;
+}
+
 export function formatUsd(n) {
   return `$${(n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
