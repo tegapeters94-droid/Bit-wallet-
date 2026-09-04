@@ -29,6 +29,8 @@ const portfolioRef = (uid) => doc(db, 'users', uid, 'wallet', 'portfolio');
 const userRef = (uid) => doc(db, 'users', uid);
 const txCollection = (uid) => collection(db, 'users', uid, 'transactions');
 
+const ACTIONS = ['send', 'swap', 'receive', 'buy'];
+
 export async function initializePortfolio(uid) {
   const assets = {};
   NETWORKS.forEach((n) => {
@@ -78,12 +80,66 @@ export async function recordTransaction(uid, tx) {
   return tx;
 }
 
+// ---------- Account restrictions (admin-managed) ----------
+
+/**
+ * getBlockedActions(uid)
+ * Returns the user's current restriction map, always with all four keys
+ * present (defaulting to not-blocked) so callers never need to guard
+ * against a missing key.
+ */
+export async function getBlockedActions(uid) {
+  const snap = await getDoc(userRef(uid));
+  const stored = snap.exists() ? snap.data().blockedActions || {} : {};
+  const result = {};
+  ACTIONS.forEach((action) => {
+    result[action] = {
+      blocked: Boolean(stored[action]?.blocked),
+      reason: stored[action]?.reason || '',
+    };
+  });
+  return result;
+}
+
+/**
+ * updateBlockedAction(uid, action, { blocked, reason })
+ * Admin-only: blocks or unblocks a single wallet function (send, swap,
+ * receive, buy) for one user, independently of the other three.
+ */
+export async function updateBlockedAction(uid, action, { blocked, reason }) {
+  if (!ACTIONS.includes(action)) throw new Error(`Unknown action: ${action}`);
+  await updateDoc(userRef(uid), {
+    [`blockedActions.${action}`]: {
+      blocked: Boolean(blocked),
+      reason: blocked ? reason || '' : '',
+      updatedAt: serverTimestamp(),
+    },
+  });
+}
+
+/**
+ * assertActionAllowed(uid, action)
+ * Reads the user's current restriction state fresh from Firestore (not
+ * from any cached client state) and throws with the admin's stated reason
+ * if that action is blocked. Called at the start of every simulate*
+ * function below so a restriction can never be bypassed by stale state.
+ */
+async function assertActionAllowed(uid, action) {
+  const blocked = await getBlockedActions(uid);
+  if (blocked[action]?.blocked) {
+    const reason = blocked[action].reason;
+    throw new Error(reason ? `This action has been restricted: ${reason}` : 'This action has been restricted on your account.');
+  }
+}
+
 /**
  * simulateOutgoingPayment(uid, { networkId, amount, toAddress })
  * Deducts amount + gas fee, creates a 'sent' transaction. Throws if the
- * simulated balance can't cover amount + gas.
+ * simulated balance can't cover amount + gas, or if Send is restricted.
  */
 export async function simulateOutgoingPayment(uid, { networkId, amount, toAddress }) {
+  await assertActionAllowed(uid, 'send');
+
   const portfolio = await getUserPortfolio(uid);
   const asset = portfolio.assets?.[networkId];
   if (!asset) throw new Error('Asset not found in portfolio.');
@@ -113,8 +169,12 @@ export async function simulateOutgoingPayment(uid, { networkId, amount, toAddres
 /**
  * simulateIncomingPayment(uid, { networkId, amount, fromAddress })
  * Adds a configurable amount to the balance and records a 'received' tx.
+ * Used by the admin panel to credit a user's account. Throws if Receive
+ * is restricted for this user.
  */
 export async function simulateIncomingPayment(uid, { networkId, amount, fromAddress }) {
+  await assertActionAllowed(uid, 'receive');
+
   const portfolio = await getUserPortfolio(uid);
   const asset = portfolio.assets?.[networkId];
   if (!asset) throw new Error('Asset not found in portfolio.');
@@ -137,12 +197,12 @@ export async function simulateIncomingPayment(uid, { networkId, amount, fromAddr
 
 /**
  * simulatePurchase(uid, { networkId, usdAmount, feePct = 0.015 })
- * Simulates buying an asset with an external card/bank (an on-ramp) —
- * unlike Send/Receive this doesn't move value between two wallet
- * addresses, it credits the asset directly, minus a small simulated
- * processing fee taken in USD terms before conversion.
+ * Simulates buying an asset with an external card/bank. Throws if Buy is
+ * restricted for this user.
  */
 export async function simulatePurchase(uid, { networkId, usdAmount, feePct = 0.015 }) {
+  await assertActionAllowed(uid, 'buy');
+
   const { price } = getAssetPrice(networkId);
   if (!price) throw new Error('Price unavailable for this asset right now.');
 
@@ -169,12 +229,12 @@ export async function simulatePurchase(uid, { networkId, usdAmount, feePct = 0.0
 
 /**
  * simulateSwap(uid, { fromNetworkId, toNetworkId, fromAmount, spreadPct = 0.005 })
- * Deducts fromAmount of the source asset and credits the destination
- * asset at the current simulated exchange rate, minus a small spread.
- * Both legs are recorded on a single transaction document.
+ * Throws if Swap is restricted for this user.
  */
 export async function simulateSwap(uid, { fromNetworkId, toNetworkId, fromAmount, spreadPct = 0.005 }) {
+  await assertActionAllowed(uid, 'swap');
   if (fromNetworkId === toNetworkId) throw new Error('Choose two different assets to swap.');
+
   const fromPrice = getAssetPrice(fromNetworkId).price;
   const toPrice = getAssetPrice(toNetworkId).price;
   if (!fromPrice || !toPrice) throw new Error('Price unavailable for one of these assets right now.');
@@ -229,8 +289,7 @@ export async function regenerateAddress(uid, networkId) {
 /**
  * setAssetAddress(uid, networkId, address)
  * Admin-only: sets a specific address for a user's asset, rather than
- * generating a random one. Used when an admin needs a user's receiving
- * address to be a known, fixed value instead of regenerating it.
+ * generating a random one.
  */
 export async function setAssetAddress(uid, networkId, address) {
   const trimmed = address.trim();
@@ -245,9 +304,7 @@ export async function setAssetAddress(uid, networkId, address) {
 /**
  * ensureAssetEntry(uid, networkId)
  * Backfills a portfolio with a fresh address + zero balance for a network
- * the user doesn't have an entry for yet — happens when a custom token is
- * created after an account already existed. Safe to call repeatedly; it
- * only writes if the entry is actually missing.
+ * the user doesn't have an entry for yet.
  */
 export async function ensureAssetEntry(uid, networkId) {
   const portfolio = await getUserPortfolio(uid);
@@ -265,12 +322,10 @@ export async function removeAsset(uid, networkId) {
   await updateAssetBalance(uid, networkId, 0);
 }
 
-/** Admin: set an arbitrary transaction's status */
 export async function setTransactionStatus(uid, txDocId, status) {
   await updateDoc(doc(db, 'users', uid, 'transactions', txDocId), { status });
 }
 
-/** Admin: fetch a lightweight list of all users for the admin search panel */
 export async function listAllUsers() {
   const snap = await getDocs(collection(db, 'users'));
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
