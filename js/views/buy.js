@@ -1,10 +1,10 @@
 // js/views/buy.js
 import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
-import { simulatePurchase } from '../wallet.js';
+import { simulatePurchase, getBlockedActions } from '../wallet.js';
 import { NETWORKS, getNetwork } from '../networks.js';
 import { getAssetPrice, onPricesUpdated } from '../pricing.js';
-import { networkIconHtml, formatUsd } from '../components.js';
+import { networkIconHtml, formatUsd, emptyStateHtml } from '../components.js';
 import { notify } from '../toast.js';
 import { navigate } from '../router.js';
 
@@ -18,8 +18,23 @@ export function mount(container) {
   let usdAmount = '100';
   let step = 'form'; // form | processing | done
   let result = null;
+  let restriction = null;
 
   function render() {
+    if (restriction?.blocked) {
+      content.innerHTML = `
+        <div class="page-header"><h1>Buy</h1></div>
+        <div class="card">
+          ${emptyStateHtml({
+            icon: '⛔',
+            title: 'Buying is currently restricted',
+            message: restriction.reason || 'Contact support for more information.',
+          })}
+        </div>
+      `;
+      return;
+    }
+
     const net = getNetwork(networkId);
     const { price } = getAssetPrice(networkId);
     const amount = parseFloat(usdAmount) || 0;
@@ -126,7 +141,13 @@ export function mount(container) {
     }
   }
 
-  render();
-  const unsubPrices = onPricesUpdated(render);
+  getBlockedActions(user.uid).then((blocked) => {
+    restriction = blocked.buy;
+    render();
+  });
+
+  const unsubPrices = onPricesUpdated(() => {
+    if (step === 'form' && !restriction?.blocked) render();
+  });
   return () => unsubPrices();
 }

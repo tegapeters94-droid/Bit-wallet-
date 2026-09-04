@@ -27,7 +27,7 @@ export function mount(container) {
 
         <form id="signupForm" novalidate>
           <label class="field"><span>Full name</span>
-            <input id="name" placeholder="Ada Okafor" autocomplete="name" />
+            <input id="name" placeholder="James Anderson" autocomplete="name" />
             <span class="field__error" id="nameError"></span>
           </label>
           <label class="field"><span>Email</span>

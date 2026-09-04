@@ -1,10 +1,10 @@
 // js/views/swap.js
 import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
-import { subscribeToPortfolio, simulateSwap } from '../wallet.js';
+import { subscribeToPortfolio, simulateSwap, getBlockedActions } from '../wallet.js';
 import { NETWORKS, getNetwork } from '../networks.js';
 import { getAssetPrice, onPricesUpdated } from '../pricing.js';
-import { networkIconHtml } from '../components.js';
+import { networkIconHtml, emptyStateHtml } from '../components.js';
 import { notify } from '../toast.js';
 import { navigate } from '../router.js';
 
@@ -20,12 +20,27 @@ export function mount(container) {
   let assets = null;
   let step = 'form';
   let result = null;
+  let restriction = null;
 
   function balanceFor(id) {
     return assets?.[id]?.balance ?? 0;
   }
 
   function render() {
+    if (restriction?.blocked) {
+      content.innerHTML = `
+        <div class="page-header"><h1>Swap</h1></div>
+        <div class="card">
+          ${emptyStateHtml({
+            icon: '⛔',
+            title: 'Swapping is currently restricted',
+            message: restriction.reason || 'Contact support for more information.',
+          })}
+        </div>
+      `;
+      return;
+    }
+
     const fromNet = getNetwork(fromNetworkId);
     const toNet = getNetwork(toNetworkId);
     const fromPrice = getAssetPrice(fromNetworkId).price;
@@ -189,14 +204,17 @@ export function mount(container) {
     }
   }
 
-  render();
+  getBlockedActions(user.uid).then((blocked) => {
+    restriction = blocked.swap;
+    render();
+  });
 
   const unsub = subscribeToPortfolio(user.uid, (data) => {
     assets = data.assets || {};
-    if (step === 'form') render();
+    if (step === 'form' && !restriction?.blocked) render();
   });
   const unsubPrices = onPricesUpdated(() => {
-    if (step === 'form') render();
+    if (step === 'form' && !restriction?.blocked) render();
   });
 
   return () => {

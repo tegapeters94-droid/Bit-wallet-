@@ -16,6 +16,8 @@ import {
   simulateOutgoingPayment,
   subscribeToTransactions,
   setTransactionStatus,
+  getBlockedActions,
+  updateBlockedAction,
 } from '../wallet.js';
 import {
   subscribeToCustomTokens,
@@ -24,6 +26,13 @@ import {
   deleteCustomToken,
   getCirculatingSupply,
 } from '../customTokens.js';
+
+const RESTRICTABLE_ACTIONS = [
+  { key: 'send', label: 'Send' },
+  { key: 'swap', label: 'Swap' },
+  { key: 'receive', label: 'Receive' },
+  { key: 'buy', label: 'Buy' },
+];
 
 export function mount(container) {
   const content = renderShell(container);
@@ -181,8 +190,6 @@ export function mount(container) {
   const unsubTokens = subscribeToCustomTokens((tokens) => {
     customTokens = tokens;
     renderTokenSection();
-    // A token was added/removed — the per-user balance grid (which lists
-    // every entry in NETWORKS) should reflect that if a user is selected.
     if (selectedUid) mountDetail();
   });
 
@@ -272,8 +279,13 @@ function mountAdminUserPanel(detailEl, user) {
   let busy = false;
   let genForm = { networkId: NETWORKS[0].id, type: 'received', amount: '0.1' };
 
+  // Account restrictions state
+  let restrictions = null; // { send: {blocked, reason}, swap: {...}, receive: {...}, buy: {...} }
+  let draftReasons = {};
+  let savingAction = null;
+
   function render() {
-    if (!assets) {
+    if (!assets || !restrictions) {
       detailEl.innerHTML = `<div class="card">Loading portfolio…</div>`;
       return;
     }
@@ -283,6 +295,30 @@ function mountAdminUserPanel(detailEl, user) {
 
     detailEl.innerHTML = `
       <div class="admin-detail">
+        <div class="card">
+          <div class="section-head"><h3>Account restrictions</h3></div>
+          <p class="auth-sub" style="margin-bottom:14px;">Block or unblock each wallet function independently. A reason is required when blocking, and is shown to the user.</p>
+          <div class="admin-restriction-list">
+            ${RESTRICTABLE_ACTIONS.map(({ key, label }) => {
+              const r = restrictions[key];
+              return `
+                <div class="admin-restriction-row">
+                  <div class="admin-restriction-row__top">
+                    <span class="admin-restriction-row__label">${label}</span>
+                    <span class="status-badge ${r.blocked ? 'status-badge--failed' : 'status-badge--confirmed'}">${r.blocked ? 'Blocked' : 'Active'}</span>
+                  </div>
+                  ${
+                    r.blocked
+                      ? `<p class="admin-restriction-row__reason">${escapeHtml(r.reason || 'No reason given.')}</p>
+                         <button class="btn btn--ghost btn--sm" data-unblock="${key}" ${savingAction === key ? 'disabled' : ''}>${savingAction === key ? '…' : 'Unblock'}</button>`
+                      : `<input type="text" placeholder="Reason for blocking (shown to user)" data-reason-input="${key}" value="${escapeHtml(draftReasons[key] ?? '')}" />
+                         <button class="btn btn--danger btn--sm" data-block="${key}" ${savingAction === key ? 'disabled' : ''}>${savingAction === key ? '…' : 'Block'}</button>`
+                  }
+                </div>`;
+            }).join('')}
+          </div>
+        </div>
+
         <div class="card">
           <div class="section-head"><h3>${escapeHtml(user.name)}'s portfolio</h3><span class="pill pill--muted">$${portfolioValue.total.toLocaleString()}</span></div>
           <div class="admin-balance-grid">
@@ -356,6 +392,55 @@ function mountAdminUserPanel(detailEl, user) {
   }
 
   function wireEvents() {
+    // Restrictions
+    detailEl.querySelectorAll('[data-reason-input]').forEach((input) => {
+      input.addEventListener('input', (e) => {
+        draftReasons[input.getAttribute('data-reason-input')] = e.target.value;
+      });
+    });
+
+    detailEl.querySelectorAll('[data-block]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const action = btn.getAttribute('data-block');
+        const reason = (draftReasons[action] ?? '').trim();
+        if (!reason) {
+          notify('Enter a reason for the block', { type: 'error' });
+          return;
+        }
+        savingAction = action;
+        render();
+        try {
+          await updateBlockedAction(user.uid, action, { blocked: true, reason });
+          restrictions[action] = { blocked: true, reason };
+          notify(`${action[0].toUpperCase()}${action.slice(1)} blocked for this user`);
+        } catch (err) {
+          notify(`Could not block: ${err.message}`, { type: 'error' });
+        } finally {
+          savingAction = null;
+          render();
+        }
+      });
+    });
+
+    detailEl.querySelectorAll('[data-unblock]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const action = btn.getAttribute('data-unblock');
+        savingAction = action;
+        render();
+        try {
+          await updateBlockedAction(user.uid, action, { blocked: false, reason: '' });
+          restrictions[action] = { blocked: false, reason: '' };
+          notify(`${action[0].toUpperCase()}${action.slice(1)} unblocked`);
+        } catch (err) {
+          notify(`Could not unblock: ${err.message}`, { type: 'error' });
+        } finally {
+          savingAction = null;
+          render();
+        }
+      });
+    });
+
+    // Balances
     detailEl.querySelectorAll('[data-balance-input]').forEach((input) => {
       input.addEventListener('input', (e) => {
         draftBalances[input.getAttribute('data-balance-input')] = e.target.value;
@@ -418,15 +503,12 @@ function mountAdminUserPanel(detailEl, user) {
         savingNetwork = networkId;
         render();
         try {
-          // A custom token created after this user's portfolio was first
-          // set up won't have an address entry yet — generate one before
-          // writing a balance so Send/Receive/Asset pages don't break.
           if (!assets[networkId]?.address) {
             const addr = await regenerateAddress(user.uid, networkId);
             assets[networkId] = { ...(assets[networkId] || {}), address: addr };
           }
           await updateAssetBalance(user.uid, networkId, val);
-          assets[networkId] = { ...(assets[networkId] || {}), balance: val };
+          assets[networkId] = { ...assets[networkId], balance: val };
           notify(`${net?.name ?? networkId} balance updated`);
         } catch (err) {
           notify(`Could not update balance: ${err.message}`, { type: 'error' });
@@ -531,6 +613,11 @@ function mountAdminUserPanel(detailEl, user) {
     .catch((err) => {
       detailEl.innerHTML = `<div class="card">Could not load this user's portfolio: ${escapeHtml(err.message)}</div>`;
     });
+
+  getBlockedActions(user.uid).then((r) => {
+    restrictions = r;
+    render();
+  });
 
   const unsubTx = subscribeToTransactions(user.uid, (tx) => {
     transactions = tx.slice(0, 25);
