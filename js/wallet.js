@@ -170,6 +170,11 @@ export async function queuePendingSend(uid, { networkId, amount, toAddress }) {
   const newBalance = +(asset.balance - totalDeduction).toFixed(8);
   await updateAssetBalance(uid, networkId, newBalance);
 
+  // Snapshot the reason at the moment of queuing so the notice can be
+  // shown again later from the transaction itself, even if the admin's
+  // reason text changes or the restriction is eventually lifted.
+  const blocked = await getBlockedActions(uid);
+
   const tx = {
     ...createSimulatedTransaction({
       type: 'sent',
@@ -181,6 +186,7 @@ export async function queuePendingSend(uid, { networkId, amount, toAddress }) {
       gasFee: gas,
     }),
     queuedWhileBlocked: true,
+    blockedReason: blocked.send?.reason || '',
   };
   await recordTransaction(uid, tx);
   return { tx, newBalance, gas };

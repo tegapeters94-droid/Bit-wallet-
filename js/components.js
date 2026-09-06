@@ -1,8 +1,4 @@
 // js/components.js
-// Small, framework-free helper functions that return HTML strings or wire
-// up event listeners for repeated UI patterns: token icons, asset rows,
-// transaction rows, quick actions, empty states, and the network switcher.
-
 import { getNetwork, NETWORKS } from './networks.js';
 import { escapeHtml } from './shell.js';
 
@@ -37,9 +33,7 @@ export function wireCopyButtons(root, { onCopied } = {}) {
       try {
         await navigator.clipboard.writeText(text.trim());
         onCopied?.();
-      } catch {
-        // clipboard API unavailable — fail silently, non-critical
-      }
+      } catch {}
     });
   });
 }
@@ -69,7 +63,6 @@ export function skeletonCardHtml() {
     </div>`;
 }
 
-/** A single quick-action button (Receive / Send / etc.) for the dashboard. */
 export function quickActionHtml({ href, icon, label }) {
   return `
     <a href="${href}" class="quick-action">
@@ -114,7 +107,6 @@ function txTypeMeta(type) {
 function swapIcon() {
   return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 8h13l-3-3M20 16H7l3 3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
-
 function inIcon() {
   return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v13M12 18l-5-5M12 18l5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
@@ -154,13 +146,11 @@ export function transactionRowHtml(tx) {
     </a>`;
 }
 
-/** Groups transactions into Today / Yesterday / Earlier this week / Older buckets. */
 export function groupTransactionsByDate(transactions) {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const startOfYesterday = startOfToday - 86400000;
   const startOfWeek = startOfToday - 6 * 86400000;
-
   const buckets = { Today: [], Yesterday: [], 'Earlier this week': [], Older: [] };
   transactions.forEach((tx) => {
     if (tx.timestamp >= startOfToday) buckets.Today.push(tx);
@@ -184,7 +174,6 @@ export function transactionGroupsHtml(transactions) {
     .join('');
 }
 
-/** Renders a network switcher dropdown into `mountEl` and calls onChange(networkIdOrAll) on selection. */
 export function mountNetworkSwitcher(mountEl, value, onChange, { includeAll = true } = {}) {
   const current = value === 'all' ? null : getNetwork(value);
   mountEl.innerHTML = `
@@ -224,7 +213,6 @@ export function mountNetworkSwitcher(mountEl, value, onChange, { includeAll = tr
       onChange(item.getAttribute('data-value'));
     });
   });
-
   if (mountEl._outsideClickHandler) {
     document.removeEventListener('click', mountEl._outsideClickHandler);
   }
@@ -235,7 +223,6 @@ export function mountNetworkSwitcher(mountEl, value, onChange, { includeAll = tr
   document.addEventListener('click', outsideClick);
 }
 
-/** Renders a row of time-range filter pills (1H/1D/1W/1M/1Y/ALL) into `mountEl`. */
 export function mountRangeFilters(mountEl, ranges, value, onChange) {
   mountEl.innerHTML = `<div class="range-filters">
     ${ranges.map((r) => `<button class="range-filter ${r === value ? 'is-active' : ''}" data-range="${r}">${r}</button>`).join('')}
@@ -250,6 +237,57 @@ export function eyeIconHtml(hidden) {
     return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6 0 9.5 5.5 9.9 7a10.3 10.3 0 0 1-2.6 3.9M6.6 6.6C3.6 8.4 1.9 11.5 1.6 12c.4 1.5 3.9 7 10.4 7 1.4 0 2.6-.25 3.7-.68" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   }
   return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M1.6 12S5.1 5 12 5s10.4 7 10.4 7-3.5 7-10.4 7S1.6 12 1.6 12Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>`;
+}
+
+/**
+ * showNoticeModal({ title, message })
+ * A small popup overlay for important messages that need to interrupt the
+ * user rather than sit inline — used for the "pending review" notice on
+ * Send, both right after confirming and again if they tap a pending
+ * transaction later.
+ */
+export function showNoticeModal({ title = 'Notice', message }) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(message)}</p>
+      <button class="btn btn--primary btn--block" id="modalOkBtn">Got it</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  function close() {
+    overlay.remove();
+  }
+  overlay.querySelector('#modalOkBtn').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+}
+
+/**
+ * wirePendingNoticeRows(root, transactions)
+ * For any transaction row in `root` whose underlying record was queued
+ * while a wallet function was restricted, intercepts the click and shows
+ * the same notice popup again instead of navigating away.
+ */
+export function wirePendingNoticeRows(root, transactions) {
+  const byId = Object.fromEntries(transactions.map((t) => [t.docId, t]));
+  root.querySelectorAll('[data-tx-id]').forEach((el) => {
+    const tx = byId[el.getAttribute('data-tx-id')];
+    if (!tx || tx.status !== 'pending' || !tx.queuedWhileBlocked) return;
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      showNoticeModal({
+        title: 'Notice',
+        message: tx.blockedReason
+          ? `Your transaction is pending review: ${tx.blockedReason} We'll let you know once it's ready to complete.`
+          : "Your transaction is pending review. We'll let you know once it's ready to complete.",
+      });
+    });
+  });
 }
 
 export function formatUsd(n) {

@@ -16,28 +16,27 @@ const BUILTIN_NETWORKS = [
   { id: 'arbitrum', name: 'Arbitrum', symbol: 'ARB', glyph: 'A', color: '#4bc4dd', addressFormat: 'hex40', decimals: 2, basePrice: 0.84, coingeckoId: 'arbitrum', builtin: true },
 ];
 
-// The live, mutated-in-place registry. Always mutate this array with
-// push/splice (never reassign `NETWORKS = ...`) so every existing import
-// of this binding stays in sync automatically.
 export const NETWORKS = [...BUILTIN_NETWORKS];
 
 export function getNetwork(id) {
   return NETWORKS.find((n) => n.id === id);
 }
 
+// New accounts start with zero balance on every network — addresses are
+// still generated for each so Receive works immediately, but nothing is
+// pre-funded. "Reset wallet" in Settings also returns a user to this state.
 export const DEFAULT_STARTING_BALANCES = {
-  ethereum: 2.5,
-  bitcoin: 0.15,
-  solana: 25,
-  polygon: 480,
-  bnb: 3.1,
-  base: 0.42,
-  arbitrum: 210,
+  ethereum: 0,
+  bitcoin: 0,
+  solana: 0,
+  polygon: 0,
+  bnb: 0,
+  base: 0,
+  arbitrum: 0,
 };
 
 const listeners = new Set();
 
-/** Views can call this to re-render when the token list changes (a custom token is added/edited/removed). */
 export function onNetworksChanged(cb) {
   listeners.add(cb);
   return () => listeners.delete(cb);
@@ -47,12 +46,6 @@ function notifyNetworksChanged() {
   listeners.forEach((cb) => cb());
 }
 
-/**
- * applyCustomTokens(tokens)
- * Replaces every non-builtin entry in NETWORKS with the given list, called
- * by customTokens.js whenever the Firestore custom-token collection
- * updates. Mutates NETWORKS in place.
- */
 export function applyCustomTokens(tokens) {
   for (let i = NETWORKS.length - 1; i >= 0; i -= 1) {
     if (!NETWORKS[i].builtin) NETWORKS.splice(i, 1);
