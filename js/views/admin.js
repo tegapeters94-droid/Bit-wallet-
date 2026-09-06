@@ -62,7 +62,7 @@ export function mount(container) {
 
   // ---------- Custom tokens ----------
   let tokenFormOpen = false;
-  let tokenForm = { id: '', name: '', symbol: '', price: '', maxSupply: '', color: '#8b6cf7' };
+  let tokenForm = { id: '', name: '', symbol: '', price: '', maxSupply: '', color: '#8b6cf7', logoUrl: '' };
   let tokenBusy = false;
 
   function renderTokenSection() {
@@ -86,6 +86,10 @@ export function mount(container) {
                 <label class="field"><span>Price (USD)</span><input id="tf_price" type="number" step="any" placeholder="1.00" value="${escapeHtml(tokenForm.price)}" /></label>
                 <label class="field"><span>Max supply (optional)</span><input id="tf_maxSupply" type="number" step="any" placeholder="Unlimited" value="${escapeHtml(tokenForm.maxSupply)}" /></label>
               </div>
+              <div class="admin-token-form__row">
+                <label class="field" style="grid-column:1 / -1;"><span>Logo URL (optional)</span><input id="tf_logoUrl" type="url" placeholder="https://example.com/logo.png" value="${escapeHtml(tokenForm.logoUrl)}" /></label>
+              </div>
+              <div class="admin-token-form__logo-preview" id="tokenLogoPreview"></div>
               <button class="btn btn--primary" id="createTokenBtn" ${tokenBusy ? 'disabled' : ''}>${tokenBusy ? 'Creating…' : 'Create token'}</button>
             </div>`
           : ''
@@ -97,15 +101,21 @@ export function mount(container) {
             : customTokens
                 .map(
                   (t) => `
-              <div class="admin-token-row">
-                ${networkIconHtml(t.id, 30)}
-                <div class="admin-token-row__main">
-                  <strong>${escapeHtml(t.name)} <span class="mono" style="color:var(--text-tertiary);">${escapeHtml(t.symbol)}</span></strong>
-                  <span>Max supply: ${t.maxSupply != null ? t.maxSupply.toLocaleString() : 'Unlimited'}</span>
+              <div class="admin-token-card">
+                <div class="admin-token-card__top">
+                  ${networkIconHtml(t.id, 30)}
+                  <div class="admin-token-row__main">
+                    <strong>${escapeHtml(t.name)} <span class="mono" style="color:var(--text-tertiary);">${escapeHtml(t.symbol)}</span></strong>
+                    <span>Max supply: ${t.maxSupply != null ? t.maxSupply.toLocaleString() : 'Unlimited'}</span>
+                  </div>
+                  <input type="number" step="any" data-token-price="${t.id}" value="${t.price}" style="width:90px;" />
+                  <button class="btn btn--ghost btn--sm" data-save-price="${t.id}">Save</button>
                 </div>
-                <input type="number" step="any" data-token-price="${t.id}" value="${t.price}" style="width:100px;" />
-                <button class="btn btn--ghost btn--sm" data-save-price="${t.id}">Save</button>
-                <button class="btn btn--ghost btn--sm" data-delete-token="${t.id}">Delete</button>
+                <div class="admin-token-card__address">
+                  <input type="url" data-token-logo="${t.id}" value="${escapeHtml(t.logoUrl || '')}" placeholder="Logo URL (optional)" />
+                  <button class="btn btn--ghost btn--sm" data-save-logo="${t.id}">Save logo</button>
+                  <button class="btn btn--ghost btn--sm" data-delete-token="${t.id}">Delete</button>
+                </div>
               </div>`
                 )
                 .join('')
@@ -119,6 +129,16 @@ export function mount(container) {
     });
 
     if (tokenFormOpen) {
+      const preview = () => {
+        const url = el.querySelector('#tf_logoUrl').value.trim();
+        const box = el.querySelector('#tokenLogoPreview');
+        box.innerHTML = url
+          ? `<img src="${url}" alt="" width="40" height="40" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.replaceWith(document.createTextNode('Could not load that image'))" />`
+          : '';
+      };
+      el.querySelector('#tf_logoUrl').addEventListener('input', preview);
+      preview();
+
       el.querySelector('#createTokenBtn').addEventListener('click', async () => {
         const id = el.querySelector('#tf_id').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
         const name = el.querySelector('#tf_name').value.trim();
@@ -127,6 +147,7 @@ export function mount(container) {
         const price = parseFloat(el.querySelector('#tf_price').value);
         const maxSupplyRaw = el.querySelector('#tf_maxSupply').value.trim();
         const maxSupply = maxSupplyRaw ? parseFloat(maxSupplyRaw) : null;
+        const logoUrl = el.querySelector('#tf_logoUrl').value.trim();
 
         if (!id || !name || !symbol) {
           notify('Token ID, name, and symbol are required', { type: 'error' });
@@ -143,9 +164,9 @@ export function mount(container) {
         tokenBusy = true;
         renderTokenSection();
         try {
-          await createCustomToken({ id, name, symbol, color, price, maxSupply });
+          await createCustomToken({ id, name, symbol, color, price, maxSupply, logoUrl });
           notify(`${symbol} created`);
-          tokenForm = { id: '', name: '', symbol: '', price: '', maxSupply: '', color: '#8b6cf7' };
+          tokenForm = { id: '', name: '', symbol: '', price: '', maxSupply: '', color: '#8b6cf7', logoUrl: '' };
           tokenFormOpen = false;
         } catch (err) {
           notify(`Could not create token: ${err.message}`, { type: 'error' });
@@ -170,6 +191,20 @@ export function mount(container) {
           notify('Price updated');
         } catch (err) {
           notify(`Could not update price: ${err.message}`, { type: 'error' });
+        }
+      });
+    });
+
+    el.querySelectorAll('[data-save-logo]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-save-logo');
+        const input = el.querySelector(`[data-token-logo="${id}"]`);
+        const logoUrl = input.value.trim();
+        try {
+          await updateCustomToken(id, { logoUrl: logoUrl || null });
+          notify('Logo updated');
+        } catch (err) {
+          notify(`Could not update logo: ${err.message}`, { type: 'error' });
         }
       });
     });

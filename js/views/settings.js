@@ -1,11 +1,11 @@
 // js/views/settings.js
 import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
-import { subscribeToPortfolio, regenerateAddress, resetPortfolio } from '../wallet.js';
+import { subscribeToPortfolio, resetPortfolio } from '../wallet.js';
 import { NETWORKS } from '../networks.js';
 import { networkIconHtml } from '../components.js';
-import { onPricesUpdated } from '../pricing.js';
 import { notify } from '../toast.js';
+import { onPricesUpdated } from '../pricing.js';
 
 const PLACEHOLDER_PHRASE = ['orbit', 'canvas', 'maple', 'lantern', 'ember', 'quartz', 'ridge', 'harbor', 'meadow', 'signal', 'anchor', 'willow'];
 
@@ -17,7 +17,6 @@ export function mount(container) {
   let showPhrase = false;
   let resetOpen = false;
   let resetting = false;
-  let regeneratingId = null;
   let aboutOpen = false;
 
   function render() {
@@ -26,7 +25,7 @@ export function mount(container) {
 
       <section class="card">
         <h3>Wallet addresses</h3>
-        <p class="auth-sub" style="margin-bottom:16px;">Generate a new receiving address for any network.</p>
+        <p class="auth-sub" style="margin-bottom:16px;">Your receiving address for each network.</p>
         <div class="settings-address-list">
           ${NETWORKS.map(
             (n) => `
@@ -36,9 +35,6 @@ export function mount(container) {
                 <strong>${n.name}</strong>
                 <span class="mono">${assets?.[n.id]?.address ?? ''}</span>
               </div>
-              <button class="btn btn--ghost" data-regen="${n.id}" ${regeneratingId === n.id ? 'disabled' : ''}>
-                ${regeneratingId === n.id ? 'Generating…' : 'New address'}
-              </button>
             </div>`
           ).join('')}
         </div>
@@ -91,22 +87,6 @@ export function mount(container) {
         }
       </section>
     `;
-
-    content.querySelectorAll('[data-regen]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        regeneratingId = btn.getAttribute('data-regen');
-        render();
-        try {
-          await regenerateAddress(user.uid, regeneratingId);
-          notify('New address generated');
-        } catch {
-          notify('Could not generate a new address', { type: 'error' });
-        } finally {
-          regeneratingId = null;
-          render();
-        }
-      });
-    });
 
     content.querySelector('#revealPhraseBtn')?.addEventListener('click', () => {
       showPhrase = true;

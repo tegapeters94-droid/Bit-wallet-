@@ -42,7 +42,7 @@ export function mount(container) {
           <div class="wallet-preview">
             <div class="balance-card">
               <div class="balance-card__identity">
-                <span class="balance-card__name">Tega's Wallet</span>
+                <span class="balance-card__name">James's Wallet</span>
                 <span class="balance-card__address mono">0x0ec3…2ae7</span>
                 <span class="copy-btn copy-btn--tiny">${copyIconHtml()}</span>
               </div>
