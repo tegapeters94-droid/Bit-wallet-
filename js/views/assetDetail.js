@@ -15,6 +15,7 @@ import {
   wireCopyButtons,
   formatUsd,
   mountRangeFilters,
+  wirePendingNoticeRows,
 } from '../components.js';
 
 export function mount(container, params) {
@@ -37,8 +38,6 @@ export function mount(container, params) {
   function render() {
     const assetData = latestAssets?.[networkId];
     if (!assetData) {
-      // A token created after this account already existed won't have an
-      // entry yet — backfill one, then re-render once the snapshot updates.
       if (latestAssets) ensureAssetEntry(user.uid, networkId).catch(() => {});
       return;
     }
@@ -119,6 +118,7 @@ export function mount(container, params) {
 
     wireCopyButtons(content, { onCopied: () => notify('Address copied') });
     renderQrInto(content.querySelector('#qrCanvas'), assetData.address);
+    if (assetTx.length > 0) wirePendingNoticeRows(content.querySelector('#txListDetail'), assetTx);
   }
 
   const unsubPortfolio = subscribeToPortfolio(user.uid, (data) => {

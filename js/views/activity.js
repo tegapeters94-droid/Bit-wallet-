@@ -2,7 +2,7 @@
 import { getState } from '../state.js';
 import { renderShell } from '../shell.js';
 import { subscribeToTransactions } from '../wallet.js';
-import { transactionGroupsHtml, emptyStateHtml, mountNetworkSwitcher } from '../components.js';
+import { transactionGroupsHtml, emptyStateHtml, mountNetworkSwitcher, wirePendingNoticeRows } from '../components.js';
 
 const TYPE_FILTERS = ['all', 'sent', 'received', 'gas'];
 
@@ -63,6 +63,7 @@ export function mount(container) {
       listEl.innerHTML = emptyStateHtml({ icon: '☰', title: 'No activity', message: 'Nothing matches this filter yet.' });
     } else {
       listEl.innerHTML = transactionGroupsHtml(visible);
+      wirePendingNoticeRows(listEl, visible);
     }
   }
 

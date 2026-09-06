@@ -4,7 +4,7 @@ import { renderShell } from '../shell.js';
 import { subscribeToPortfolio, simulateOutgoingPayment, queuePendingSend, getBlockedActions } from '../wallet.js';
 import { NETWORKS, getNetwork } from '../networks.js';
 import { calculateGasFee } from '../txEngine.js';
-import { networkIconHtml } from '../components.js';
+import { networkIconHtml, showNoticeModal } from '../components.js';
 import { onPricesUpdated } from '../pricing.js';
 import { notify } from '../toast.js';
 import { navigate } from '../router.js';
@@ -20,7 +20,7 @@ export function mount(container) {
   let error = '';
   let result = null;
   let formValues = { recipient: '', amount: '' };
-  let restriction = null; // null while loading, then { blocked, reason }
+  let restriction = null; // fetched quietly at mount; never shown until after confirming
 
   function balanceFor(id) {
     return assets?.[id]?.balance ?? 0;
@@ -32,19 +32,12 @@ export function mount(container) {
     const parsedAmount = parseFloat(formValues.amount) || 0;
     const total = +(parsedAmount + gas.fee).toFixed(8);
 
-    const restrictionBanner =
-      restriction?.blocked
-        ? `<div class="alert alert--warning">
-            Sending is currently restricted on this account${restriction.reason ? `: ${restriction.reason}` : '.'}
-            You can still submit a send below — it will be held as pending until the restriction is lifted.
-          </div>`
-        : '';
-
     let inner = '';
 
+    // The form and confirm steps look identical regardless of restriction
+    // status — nothing hints at it until after the person confirms.
     if (step === 'form') {
       inner = `
-        ${restrictionBanner}
         <form id="sendForm">
           <label class="field">
             <span>Network</span>
@@ -84,7 +77,7 @@ export function mount(container) {
         <div class="send-confirm">
           ${networkIconHtml(networkId, 56)}
           <h3>Confirm send</h3>
-          <p class="auth-sub">${restriction?.blocked ? 'This will be held as pending until the restriction on your account is lifted.' : 'Review the details before confirming.'}</p>
+          <p class="auth-sub">Review the details before confirming.</p>
           <div class="send-summary">
             <div><span>Network</span><span>${net.name}</span></div>
             <div><span>To</span><span class="mono">${formValues.recipient.slice(0, 10)}…${formValues.recipient.slice(-6)}</span></div>
@@ -94,14 +87,14 @@ export function mount(container) {
           </div>
           <div class="send-confirm__actions">
             <button class="btn btn--ghost btn--block" id="editBtn">Edit</button>
-            <button class="btn btn--primary btn--block" id="confirmBtn">${restriction?.blocked ? 'Submit as pending' : 'Confirm & send'}</button>
+            <button class="btn btn--primary btn--block" id="confirmBtn">Confirm & send</button>
           </div>
         </div>`;
     } else if (step === 'processing') {
       inner = `
         <div class="send-confirm send-confirm--processing">
           <div class="spinner spinner--lg"></div>
-          <h3>${restriction?.blocked ? 'Submitting…' : 'Sending…'}</h3>
+          <h3>Sending…</h3>
         </div>`;
     } else if (step === 'done' && result) {
       inner = `
@@ -123,8 +116,8 @@ export function mount(container) {
       inner = `
         <div class="send-confirm send-confirm--done">
           <div class="success-check" style="background:var(--warning-soft);color:var(--warning);">⏳</div>
-          <h3>Send held as pending</h3>
-          <p class="auth-sub">The amount has been deducted from your available balance and will complete once this restriction is lifted.</p>
+          <h3>Pending review</h3>
+          <p class="auth-sub">Your transaction is pending review. We'll let you know once it's ready to complete.</p>
           <div class="send-summary">
             <div><span>Amount</span><span>${parsedAmount} ${net.symbol}</span></div>
             <div><span>Status</span><span>Pending</span></div>
@@ -203,17 +196,23 @@ export function mount(container) {
             });
             result = res;
             step = 'queued';
-            notify('Send submitted as pending');
-          } else {
-            const res = await simulateOutgoingPayment(user.uid, {
-              networkId,
-              amount: parsedAmount,
-              toAddress: formValues.recipient.trim(),
+            render();
+            showNoticeModal({
+              title: 'Notice',
+              message: restriction.reason
+                ? `Your transaction is pending review: ${restriction.reason} We'll let you know once it's ready to complete.`
+                : "Your transaction is pending review. We'll let you know once it's ready to complete.",
             });
-            result = res;
-            step = 'done';
-            notify('Transaction confirmed');
+            return;
           }
+          const res = await simulateOutgoingPayment(user.uid, {
+            networkId,
+            amount: parsedAmount,
+            toAddress: formValues.recipient.trim(),
+          });
+          result = res;
+          step = 'done';
+          notify('Transaction confirmed');
         } catch (err) {
           error = err.message;
           step = 'form';
@@ -231,9 +230,9 @@ export function mount(container) {
     }
   }
 
+  // Fetched quietly — never displayed until after the person confirms a send.
   getBlockedActions(user.uid).then((blocked) => {
     restriction = blocked.send;
-    render();
   });
 
   const unsub = subscribeToPortfolio(user.uid, (data) => {
@@ -243,6 +242,8 @@ export function mount(container) {
   const unsubPrices = onPricesUpdated(() => {
     if (step === 'form') render();
   });
+
+  render();
 
   return () => {
     unsub();

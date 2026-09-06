@@ -15,6 +15,7 @@ import {
   QUICK_ACTION_ICONS,
   wireCopyButtons,
   eyeIconHtml,
+  wirePendingNoticeRows,
 } from '../components.js';
 
 const HIDE_BALANCE_KEY = 'bitwallet_balance_hidden';
@@ -115,11 +116,10 @@ export function mount(container) {
       });
     } else {
       txList.innerHTML = `<div class="tx-list">${recent.map(transactionRowHtml).join('')}</div>`;
+      wirePendingNoticeRows(txList, recent);
     }
   }
 
-  // One-time read for the identity row's address — not a live subscription,
-  // consistent with how the shell's own topbar fetches it.
   getUserPortfolio(user.uid).then((p) => {
     primaryAddress = p.assets?.ethereum?.address || '';
     renderBalanceCard();
