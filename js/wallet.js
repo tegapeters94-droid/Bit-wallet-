@@ -105,6 +105,12 @@ export async function getBlockedActions(uid) {
  * updateBlockedAction(uid, action, { blocked, reason })
  * Admin-only: blocks or unblocks a single wallet function (send, swap,
  * receive, buy) for one user, independently of the other three.
+ *
+ * Unblocking 'send' also finalizes any sends this user queued while
+ * blocked (see queuePendingSend below) — their balance was already
+ * deducted at the time they attempted the send, so finalizing here is
+ * just a status flip from 'pending' to 'confirmed', simulating the send
+ * completing now that it's allowed.
  */
 export async function updateBlockedAction(uid, action, { blocked, reason }) {
   if (!ACTIONS.includes(action)) throw new Error(`Unknown action: ${action}`);
@@ -115,6 +121,69 @@ export async function updateBlockedAction(uid, action, { blocked, reason }) {
       updatedAt: serverTimestamp(),
     },
   });
+
+  if (action === 'send' && !blocked) {
+    await finalizeQueuedSends(uid);
+  }
+}
+
+/**
+ * finalizeQueuedSends(uid)
+ * Flips every send this user queued while Send was blocked from 'pending'
+ * to 'confirmed'. Balances were already deducted when each was queued, so
+ * no further balance change happens here.
+ */
+async function finalizeQueuedSends(uid) {
+  const q = query(
+    txCollection(uid),
+    where('type', '==', 'sent'),
+    where('status', '==', 'pending'),
+    where('queuedWhileBlocked', '==', true)
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return;
+  const batch = writeBatch(db);
+  snap.docs.forEach((d) => batch.update(d.ref, { status: 'confirmed' }));
+  await batch.commit();
+}
+
+/**
+ * queuePendingSend(uid, { networkId, amount, toAddress })
+ * Used instead of simulateOutgoingPayment when a user's Send is currently
+ * blocked but they choose to submit anyway. The amount (plus gas) is
+ * deducted from their balance immediately — so it no longer shows as
+ * spendable — but the transaction is recorded as 'pending' rather than
+ * 'confirmed'. It only completes (flips to 'confirmed') once an admin
+ * unblocks Send for this user; see finalizeQueuedSends above.
+ */
+export async function queuePendingSend(uid, { networkId, amount, toAddress }) {
+  const portfolio = await getUserPortfolio(uid);
+  const asset = portfolio.assets?.[networkId];
+  if (!asset) throw new Error('Asset not found in portfolio.');
+
+  const gas = calculateGasFee(networkId);
+  const totalDeduction = +(amount + gas.fee).toFixed(8);
+  if (totalDeduction > asset.balance) {
+    throw new Error('Insufficient balance to cover amount and gas fee.');
+  }
+
+  const newBalance = +(asset.balance - totalDeduction).toFixed(8);
+  await updateAssetBalance(uid, networkId, newBalance);
+
+  const tx = {
+    ...createSimulatedTransaction({
+      type: 'sent',
+      networkId,
+      amount,
+      fromAddress: asset.address,
+      toAddress,
+      status: 'pending',
+      gasFee: gas,
+    }),
+    queuedWhileBlocked: true,
+  };
+  await recordTransaction(uid, tx);
+  return { tx, newBalance, gas };
 }
 
 /**
